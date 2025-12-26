@@ -172,3 +172,22 @@ export interface StockAnalysis {
     metrics: KeyMetrics[];
   };
 }
+
+// Rating System Types
+
+export type Rating = 'Strong Buy' | 'Buy' | 'Hold' | 'Sell';
+
+export interface RatingBreakdown {
+  quality: number;    // max 30
+  value: number;      // max 25
+  growth: number;     // max 20
+  safety: number;     // max 20
+  momentum: number;   // max 5
+}
+
+export interface RatingAnalysis {
+  score: number;           // 0-100
+  rating: Rating;
+  isHiddenGem: boolean;
+  breakdown: RatingBreakdown;
+}

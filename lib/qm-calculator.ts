@@ -9,9 +9,13 @@ import type {
   BalanceSheet,
   CashFlowStatement,
   Quote,
+  KeyMetrics,
   QMPillar,
   QMScore,
   ValuationAnalysis,
+  Rating,
+  RatingBreakdown,
+  RatingAnalysis,
 } from '@/types/stock';
 
 interface CalculationData {
@@ -321,4 +325,234 @@ export function formatNumber(value: number | null | undefined): string {
 export function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) return 'N/A';
   return `${value.toFixed(1)}%`;
+}
+
+/**
+ * Rating calculation input data
+ */
+interface RatingInputData {
+  qmScore: QMScore;
+  valuation: ValuationAnalysis;
+  quote: Quote;
+  income: IncomeStatement[];
+  cashFlow: CashFlowStatement[];
+  metrics?: KeyMetrics;
+}
+
+/**
+ * Calculate comprehensive rating (0-100) based on multiple metrics
+ * Categories: Quality (30p), Value (25p), Growth (20p), Safety (20p), Momentum (5p)
+ */
+export function calculateRating(data: RatingInputData): RatingAnalysis {
+  const breakdown: RatingBreakdown = {
+    quality: calculateQualityScore(data),
+    value: calculateValueScore(data),
+    growth: calculateGrowthScore(data),
+    safety: calculateSafetyScore(data),
+    momentum: calculateMomentumScore(data),
+  };
+
+  const totalScore = breakdown.quality + breakdown.value + breakdown.growth + breakdown.safety + breakdown.momentum;
+
+  const rating = getScoreRating(totalScore);
+  const isHiddenGem = checkHiddenGem(data, rating, totalScore);
+
+  return {
+    score: totalScore,
+    rating,
+    isHiddenGem,
+    breakdown,
+  };
+}
+
+/**
+ * Quality Score (max 30 points)
+ * QM Score, ROE, ROIC, Operating Margin, Gross Margin
+ */
+function calculateQualityScore(data: RatingInputData): number {
+  let points = 0;
+
+  // QM Score (max 12p)
+  const qmPoints = (data.qmScore.totalScore / 8) * 12;
+  points += qmPoints;
+
+  // ROE (max 6p)
+  const roe = data.qmScore.additionalMetrics.roe;
+  if (roe !== null) {
+    points += roe > 20 ? 6 : roe > 15 ? 4 : roe > 10 ? 2 : 0;
+  }
+
+  // ROIC from metrics (max 4p)
+  const roic = data.metrics?.roic ?? 0;
+  points += roic > 15 ? 4 : roic > 10 ? 3 : roic > 7 ? 2 : roic > 5 ? 1 : 0;
+
+  // Operating Margin (max 4p)
+  const opMargin = data.qmScore.additionalMetrics.operatingMargin;
+  if (opMargin !== null) {
+    points += opMargin > 20 ? 4 : opMargin > 12 ? 3 : opMargin > 8 ? 2 : opMargin > 5 ? 1 : 0;
+  }
+
+  // Gross Margin (max 4p)
+  const grossMargin = data.qmScore.additionalMetrics.grossMargin;
+  if (grossMargin !== null) {
+    points += grossMargin > 50 ? 4 : grossMargin > 35 ? 3 : grossMargin > 25 ? 2 : grossMargin > 15 ? 1 : 0;
+  }
+
+  return Math.min(30, Math.round(points));
+}
+
+/**
+ * Value Score (max 25 points)
+ * Value Gap, P/E, P/B, FCF Yield, Earnings Yield
+ */
+function calculateValueScore(data: RatingInputData): number {
+  let points = 0;
+
+  // Value Gap (max 8p)
+  const valueGap = data.valuation.valueGap;
+  if (valueGap !== null) {
+    points += valueGap > 30 ? 8 : valueGap > 20 ? 6 : valueGap > 10 ? 4 : valueGap > 0 ? 2 : 0;
+  }
+
+  // P/E (max 6p)
+  const pe = data.valuation.currentPE;
+  if (pe !== null && pe > 0) {
+    points += pe < 10 ? 6 : pe < 15 ? 4 : pe < 20 ? 3 : pe < 25 ? 2 : 0;
+  }
+
+  // P/B Ratio (max 4p)
+  const pb = data.metrics?.pbRatio ?? 0;
+  if (pb > 0) {
+    points += pb < 1 ? 4 : pb < 2 ? 3 : pb < 3 ? 2 : pb < 5 ? 1 : 0;
+  }
+
+  // FCF Yield (max 4p)
+  const fcfYield = (data.metrics?.freeCashFlowYield ?? 0) * 100;
+  points += fcfYield > 10 ? 4 : fcfYield > 7 ? 3 : fcfYield > 5 ? 2 : fcfYield > 3 ? 1 : 0;
+
+  // Earnings Yield (max 3p)
+  const earningsYield = (data.metrics?.earningsYield ?? 0) * 100;
+  points += earningsYield > 10 ? 3 : earningsYield > 7 ? 2 : earningsYield > 5 ? 1 : 0;
+
+  return Math.min(25, Math.round(points));
+}
+
+/**
+ * Growth Score (max 20 points)
+ * Revenue Growth, Net Income Growth, FCF Growth (5-year)
+ */
+function calculateGrowthScore(data: RatingInputData): number {
+  let points = 0;
+
+  const currentIncome = data.income[0];
+  const oldIncome = data.income[data.income.length - 1];
+  const currentCF = data.cashFlow[0];
+  const oldCF = data.cashFlow[data.cashFlow.length - 1];
+
+  // Revenue Growth 5y (max 7p)
+  if (currentIncome?.revenue && oldIncome?.revenue && oldIncome.revenue > 0) {
+    const revGrowth = ((currentIncome.revenue - oldIncome.revenue) / oldIncome.revenue) * 100;
+    points += revGrowth > 50 ? 7 : revGrowth > 30 ? 5 : revGrowth > 15 ? 3 : revGrowth > 0 ? 1 : 0;
+  }
+
+  // Net Income Growth 5y (max 7p)
+  if (currentIncome?.netIncome && oldIncome?.netIncome && oldIncome.netIncome > 0) {
+    const niGrowth = ((currentIncome.netIncome - oldIncome.netIncome) / oldIncome.netIncome) * 100;
+    points += niGrowth > 50 ? 7 : niGrowth > 30 ? 5 : niGrowth > 15 ? 3 : niGrowth > 0 ? 1 : 0;
+  }
+
+  // FCF Growth 5y (max 6p)
+  if (currentCF?.freeCashFlow && oldCF?.freeCashFlow && oldCF.freeCashFlow > 0) {
+    const fcfGrowth = ((currentCF.freeCashFlow - oldCF.freeCashFlow) / oldCF.freeCashFlow) * 100;
+    points += fcfGrowth > 50 ? 6 : fcfGrowth > 30 ? 4 : fcfGrowth > 15 ? 2 : fcfGrowth > 0 ? 1 : 0;
+  }
+
+  return Math.min(20, Math.round(points));
+}
+
+/**
+ * Safety & Dividend Score (max 20 points)
+ * Debt Ratio, Current Ratio, Interest Coverage, Dividend Yield, Payout Ratio
+ */
+function calculateSafetyScore(data: RatingInputData): number {
+  let points = 0;
+
+  // Debt/FCF Ratio (max 5p) - from QM pillar 7
+  const debtPillar = data.qmScore.pillars.find(p => p.name === 'Velkaantuneisuus');
+  if (debtPillar?.value !== null && debtPillar?.value !== undefined) {
+    const debtRatio = debtPillar.value;
+    points += debtRatio < 1 ? 5 : debtRatio < 2 ? 4 : debtRatio < 3 ? 3 : debtRatio < 5 ? 2 : 0;
+  }
+
+  // Current Ratio (max 3p)
+  const currentRatio = data.qmScore.additionalMetrics.currentRatio;
+  if (currentRatio !== null) {
+    points += currentRatio > 2 ? 3 : currentRatio > 1.5 ? 2 : currentRatio > 1 ? 1 : 0;
+  }
+
+  // Interest Coverage (max 3p)
+  const interestCov = data.metrics?.interestCoverage ?? 0;
+  points += interestCov > 10 ? 3 : interestCov > 5 ? 2 : interestCov > 2 ? 1 : 0;
+
+  // Positive FCF (max 2p)
+  const latestFCF = data.cashFlow[0]?.freeCashFlow ?? 0;
+  points += latestFCF > 0 ? 2 : 0;
+
+  // Dividend Yield (max 4p)
+  const divYield = (data.metrics?.dividendYield ?? 0) * 100;
+  points += divYield > 4 ? 4 : divYield > 3 ? 3 : divYield > 2 ? 2 : divYield > 1 ? 1 : 0;
+
+  // Payout Ratio (max 3p) - healthy: 30-60%
+  const payoutRatio = (data.metrics?.payoutRatio ?? 0) * 100;
+  if (payoutRatio > 0) {
+    points += payoutRatio >= 30 && payoutRatio <= 60 ? 3 :
+              payoutRatio >= 20 && payoutRatio <= 70 ? 2 :
+              payoutRatio < 80 ? 1 : 0;
+  }
+
+  return Math.min(20, Math.round(points));
+}
+
+/**
+ * Momentum Score (max 5 points)
+ * 52-week price position (lower = better buying opportunity)
+ */
+function calculateMomentumScore(data: RatingInputData): number {
+  const { yearHigh, yearLow, price } = data.quote;
+
+  if (yearHigh > 0 && yearLow > 0 && yearHigh > yearLow) {
+    const position = (price - yearLow) / (yearHigh - yearLow);
+    return position < 0.2 ? 5 : position < 0.35 ? 4 : position < 0.5 ? 3 : position < 0.65 ? 2 : position < 0.8 ? 1 : 0;
+  }
+
+  return 0;
+}
+
+/**
+ * Convert score to rating
+ */
+function getScoreRating(score: number): Rating {
+  if (score >= 75) return 'Strong Buy';
+  if (score >= 55) return 'Buy';
+  if (score >= 35) return 'Hold';
+  return 'Sell';
+}
+
+/**
+ * Check if stock qualifies as "Hidden Gem"
+ * Criteria: QM ≥ 6, Market Cap < $50B, Value Gap > 15%, Rating Buy/Strong Buy, Positive FCF
+ */
+function checkHiddenGem(data: RatingInputData, rating: Rating, score: number): boolean {
+  const qmScore = data.qmScore.totalScore;
+  const marketCap = data.quote.marketCap;
+  const valueGap = data.valuation.valueGap;
+  const latestFCF = data.cashFlow[0]?.freeCashFlow ?? 0;
+
+  return (
+    qmScore >= 6 &&
+    marketCap < 50_000_000_000 && // < $50B
+    valueGap !== null && valueGap > 15 &&
+    (rating === 'Buy' || rating === 'Strong Buy') &&
+    latestFCF > 0
+  );
 }
