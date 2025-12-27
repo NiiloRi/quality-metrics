@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Filter, TrendingUp, TrendingDown, Minus, ArrowUpDown, Play, Loader2, Globe, Flag, AlertTriangle, Gem } from 'lucide-react';
+import { Filter, TrendingUp, TrendingDown, Minus, ArrowUpDown, Play, Loader2, Globe, Flag, AlertTriangle, Gem, Lock } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import SearchBar from '@/components/SearchBar';
 import Logo from '@/components/Logo';
 import GlowCard from '@/components/GlowCard';
+import UserMenu from '@/components/UserMenu';
 
 type Market = 'US' | 'Europe' | 'all';
 type Rating = 'Strong Buy' | 'Buy' | 'Hold' | 'Sell';
@@ -136,6 +138,9 @@ function HiddenGemBadge() {
 }
 
 export default function ScreenerPage() {
+  const { data: session } = useSession();
+  const hasPremium = session?.user?.subscriptionTier === 'trial' || session?.user?.subscriptionTier === 'premium';
+
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [sectors, setSectors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -253,6 +258,7 @@ export default function ScreenerPage() {
               <div className="flex-1 max-w-md">
                 <SearchBar />
               </div>
+              <UserMenu />
             </div>
           </div>
         </div>
@@ -431,18 +437,29 @@ export default function ScreenerPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showHiddenGemsOnly}
-                  onChange={(e) => setShowHiddenGemsOnly(e.target.checked)}
-                  className="w-4 h-4 text-[var(--primary)] border-[var(--border)] rounded focus:ring-[var(--primary)]"
-                />
-                <span className="text-sm text-[var(--foreground-secondary)] flex items-center gap-1">
-                  <Gem className="w-3.5 h-3.5 text-purple-400" />
-                  Hidden Gems
-                </span>
-              </label>
+              {hasPremium ? (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showHiddenGemsOnly}
+                    onChange={(e) => setShowHiddenGemsOnly(e.target.checked)}
+                    className="w-4 h-4 text-[var(--primary)] border-[var(--border)] rounded focus:ring-[var(--primary)]"
+                  />
+                  <span className="text-sm text-[var(--foreground-secondary)] flex items-center gap-1">
+                    <Gem className="w-3.5 h-3.5 text-purple-400" />
+                    Hidden Gems
+                  </span>
+                </label>
+              ) : (
+                <Link
+                  href="/login"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 transition-colors"
+                >
+                  <Lock className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-sm text-purple-300">Hidden Gems</span>
+                  <span className="text-xs text-purple-400/70">Premium</span>
+                </Link>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

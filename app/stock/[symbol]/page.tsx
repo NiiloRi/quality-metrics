@@ -7,6 +7,7 @@ import QMScoreCard from '@/components/QMScoreCard';
 import ValuationGauge from '@/components/ValuationGauge';
 import SearchBar from '@/components/SearchBar';
 import Logo from '@/components/Logo';
+import PremiumSection from '@/components/PremiumSection';
 
 interface PageProps {
   params: Promise<{ symbol: string }>;
@@ -161,10 +162,14 @@ async function StockData({ symbol }: { symbol: string }) {
         </div>
       </div>
 
-      {/* QM Score and Valuation */}
+      {/* QM Score and Valuation - Premium Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <QMScoreCard qmScore={qmScore} />
-        <ValuationGauge valuation={valuation} />
+        <PremiumSection>
+          <QMScoreCard qmScore={qmScore} />
+        </PremiumSection>
+        <PremiumSection>
+          <ValuationGauge valuation={valuation} />
+        </PremiumSection>
       </div>
 
       {/* Company Info */}

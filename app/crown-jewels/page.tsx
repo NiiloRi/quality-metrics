@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Crown, Diamond, TrendingUp, TrendingDown, BarChart3, Shield, Zap, RefreshCw, ChevronRight, Info } from 'lucide-react';
+import { Crown, Diamond, TrendingUp, TrendingDown, BarChart3, Shield, Zap, RefreshCw, ChevronRight, Info, Lock } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import SearchBar from '@/components/SearchBar';
 import Logo from '@/components/Logo';
 import GlowCard from '@/components/GlowCard';
+import UserMenu from '@/components/UserMenu';
 
 interface CrownJewel {
   symbol: string;
@@ -194,14 +196,19 @@ function PhaseDescription({ phase }: { phase: string }) {
 }
 
 export default function CrownJewelsPage() {
+  const { data: session, status } = useSession();
+  const hasPremium = session?.user?.subscriptionTier === 'trial' || session?.user?.subscriptionTier === 'premium';
+
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<string>('all');
   const [showMacroInfo, setShowMacroInfo] = useState(false);
 
   useEffect(() => {
-    fetchCrownJewels();
-  }, []);
+    if (hasPremium) {
+      fetchCrownJewels();
+    }
+  }, [hasPremium]);
 
   const fetchCrownJewels = async () => {
     setLoading(true);
@@ -219,6 +226,90 @@ export default function CrownJewelsPage() {
   const filteredJewels = data?.crownJewels.filter(j =>
     selectedTier === 'all' || j.tier === selectedTier
   ) || [];
+
+  // Show loading state while checking session
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 text-amber-400 animate-spin" />
+      </div>
+    );
+  }
+
+  // Show login prompt if not premium
+  if (!hasPremium) {
+    return (
+      <div className="min-h-screen">
+        {/* Navigation */}
+        <nav className="sticky top-0 z-50 nav-glass">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <Link href="/">
+                <Logo size="sm" />
+              </Link>
+              <div className="flex items-center gap-4">
+                <Link
+                  href="/screener"
+                  className="px-3 py-1.5 text-sm text-[var(--foreground-secondary)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  Screener
+                </Link>
+                <UserMenu />
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        {/* Premium Required */}
+        <main className="max-w-2xl mx-auto px-4 py-20">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Crown className="w-10 h-10 text-amber-400" />
+            </div>
+            <h1 className="text-3xl font-bold text-[var(--foreground)] font-heading mb-4">
+              Crown Jewels
+            </h1>
+            <p className="text-lg text-[var(--foreground-secondary)] mb-8 max-w-md mx-auto">
+              Access our elite stock picks with macro-adjusted rankings. The best investment opportunities, ranked by quality and value.
+            </p>
+
+            <div className="card-professional p-6 mb-8">
+              <h2 className="font-semibold text-[var(--foreground)] mb-4">What you get:</h2>
+              <ul className="text-left space-y-3">
+                <li className="flex items-start gap-3">
+                  <Crown className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-[var(--foreground-secondary)]">4-tier ranking system (Crown Jewel, Diamond, Gold, Silver)</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <BarChart3 className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-[var(--foreground-secondary)]">Macro-adjusted scores based on economic conditions</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <TrendingUp className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-[var(--foreground-secondary)]">Sector rotation insights for optimal timing</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Shield className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <span className="text-[var(--foreground-secondary)]">Quality-verified stocks with strong fundamentals</span>
+                </li>
+              </ul>
+            </div>
+
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-semibold rounded-full hover:from-amber-600 hover:to-yellow-600 transition-all shadow-lg shadow-amber-500/25 text-lg"
+            >
+              <Lock className="w-5 h-5" />
+              Start 14-Day Free Trial
+            </Link>
+            <p className="text-sm text-[var(--foreground-muted)] mt-4">
+              No credit card required. Full access to all premium features.
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -239,6 +330,7 @@ export default function CrownJewelsPage() {
               <div className="flex-1 max-w-md">
                 <SearchBar />
               </div>
+              <UserMenu />
             </div>
           </div>
         </div>

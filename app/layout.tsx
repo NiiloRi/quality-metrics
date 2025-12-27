@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import AnimatedBackground from "@/components/AnimatedBackground";
-import { LanguageProvider } from "@/lib/i18n/context";
+import Providers from "@/components/Providers";
 
 const playfair = Playfair_Display({
   variable: "--font-heading",
@@ -37,10 +37,10 @@ export default function RootLayout({
       <body
         className={`${playfair.variable} ${dmSans.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        <LanguageProvider>
+        <Providers>
           <AnimatedBackground />
           {children}
-        </LanguageProvider>
+        </Providers>
       </body>
     </html>
   );

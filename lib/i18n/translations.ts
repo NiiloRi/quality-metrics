@@ -92,6 +92,27 @@ export const translations: Record<Language, Record<string, string>> = {
     'common.no': 'No',
     'common.billion': 'B',
     'common.million': 'M',
+
+    // Paywall
+    'paywall.title': 'Premium Feature',
+    'paywall.description': 'Unlock detailed analysis with a free 14-day trial. No credit card required.',
+    'paywall.cta': 'Start Free Trial',
+    'paywall.trial': '14-day free trial, then $9.99/month',
+
+    // Login
+    'login.title': 'Sign in to Quality Metrics',
+    'login.subtitle': 'Access premium features and detailed stock analysis',
+    'login.google': 'Continue with Google',
+    'login.terms': 'By signing in, you agree to our Terms of Service',
+    'login.back': 'Back to home',
+
+    // User menu
+    'user.trial': 'Trial',
+    'user.trialDays': 'days left',
+    'user.premium': 'Premium',
+    'user.free': 'Free',
+    'user.upgrade': 'Upgrade',
+    'user.signOut': 'Sign out',
   },
 
   fi: {
@@ -179,6 +200,27 @@ export const translations: Record<Language, Record<string, string>> = {
     'common.no': 'Ei',
     'common.billion': 'Mrd',
     'common.million': 'M',
+
+    // Paywall
+    'paywall.title': 'Premium-ominaisuus',
+    'paywall.description': 'Avaa yksityiskohtainen analyysi 14 päivän ilmaisella kokeilulla. Luottokorttia ei tarvita.',
+    'paywall.cta': 'Aloita ilmainen kokeilu',
+    'paywall.trial': '14 päivän ilmainen kokeilu, sitten 9,99€/kk',
+
+    // Login
+    'login.title': 'Kirjaudu Quality Metricsiin',
+    'login.subtitle': 'Pääsy premium-ominaisuuksiin ja yksityiskohtaiseen osakeanalyysiin',
+    'login.google': 'Jatka Googlella',
+    'login.terms': 'Kirjautumalla hyväksyt käyttöehtomme',
+    'login.back': 'Takaisin etusivulle',
+
+    // User menu
+    'user.trial': 'Kokeilu',
+    'user.trialDays': 'päivää jäljellä',
+    'user.premium': 'Premium',
+    'user.free': 'Ilmainen',
+    'user.upgrade': 'Päivitä',
+    'user.signOut': 'Kirjaudu ulos',
   },
 };
 

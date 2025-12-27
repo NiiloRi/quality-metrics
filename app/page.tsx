@@ -8,6 +8,7 @@ import Logo from '@/components/Logo';
 import GlowCard from '@/components/GlowCard';
 import CompanyLogo from '@/components/CompanyLogo';
 import LanguageToggle from '@/components/LanguageToggle';
+import UserMenu from '@/components/UserMenu';
 import { useLanguage } from '@/lib/i18n/context';
 
 const popularStocks = [
@@ -62,6 +63,7 @@ export default function Home() {
               <div className="hidden sm:block w-64">
                 <SearchBar />
               </div>
+              <UserMenu />
             </div>
           </div>
         </div>

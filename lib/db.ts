@@ -180,4 +180,24 @@ export function getLastUpdateTimeByMarket(market: Market): string | null {
   return result.last_update;
 }
 
+// Users table for authentication
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT,
+    image TEXT,
+    subscription_tier TEXT DEFAULT 'free',
+    trial_ends_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+`);
+
+// Export function to get db instance (for use in other modules)
+export function getDb() {
+  return db;
+}
+
 export default db;
