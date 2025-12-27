@@ -18,13 +18,7 @@ export default function SearchBar() {
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div
-        className={`flex items-center gap-2 px-3 py-2 bg-[var(--background-secondary)] rounded-lg border transition-all ${
-          isFocused
-            ? 'border-[var(--primary)]'
-            : 'border-[var(--border)] hover:border-[var(--border-hover)]'
-        }`}
-      >
+      <div className="flex items-center gap-2">
         <Search className="w-4 h-4 text-[var(--foreground-muted)] flex-shrink-0" />
         <input
           type="text"
@@ -33,7 +27,7 @@ export default function SearchBar() {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className="flex-1 bg-transparent text-sm text-[var(--foreground)] placeholder-[var(--foreground-muted)] outline-none border-none p-0 min-w-0"
+          className="flex-1 text-sm min-w-0"
         />
         {query && (
           <button
