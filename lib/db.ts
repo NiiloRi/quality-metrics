@@ -1,80 +1,26 @@
-import Database from 'better-sqlite3';
-import path from 'path';
+/**
+ * Database access layer
+ *
+ * Uses Turso (libSQL) for cloud deployment
+ */
 
-const dbPath = path.join(process.cwd(), 'data', 'stocks.db');
+import { createClient, Client } from '@libsql/client';
 
-// Ensure data directory exists
-import { mkdirSync } from 'fs';
-try {
-  mkdirSync(path.join(process.cwd(), 'data'), { recursive: true });
-} catch {}
+// Create database client - uses Turso in production, local file in development
+let dbClient: Client | null = null;
 
-const db = new Database(dbPath);
-
-// Initialize database schema
-db.exec(`
-  CREATE TABLE IF NOT EXISTS stocks (
-    symbol TEXT PRIMARY KEY,
-    name TEXT,
-    sector TEXT,
-    industry TEXT,
-    market TEXT DEFAULT 'US',
-    data_source TEXT DEFAULT 'FMP',
-    market_cap REAL,
-    price REAL,
-    pe_ratio REAL,
-    qm_score INTEGER,
-    fair_pe REAL,
-    value_gap REAL,
-    valuation_status TEXT,
-    data_json TEXT,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_qm_score ON stocks(qm_score DESC);
-  CREATE INDEX IF NOT EXISTS idx_value_gap ON stocks(value_gap DESC);
-  CREATE INDEX IF NOT EXISTS idx_sector ON stocks(sector);
-  CREATE INDEX IF NOT EXISTS idx_market ON stocks(market);
-  CREATE INDEX IF NOT EXISTS idx_updated_at ON stocks(updated_at);
-`);
-
-// Migration: add market column if it doesn't exist
-try {
-  db.exec(`ALTER TABLE stocks ADD COLUMN market TEXT DEFAULT 'US'`);
-} catch {
-  // Column already exists
-}
-
-// Migration: add data_source column if it doesn't exist
-try {
-  db.exec(`ALTER TABLE stocks ADD COLUMN data_source TEXT DEFAULT 'FMP'`);
-} catch {
-  // Column already exists
-}
-
-// Migration: add rating columns if they don't exist
-try {
-  db.exec(`ALTER TABLE stocks ADD COLUMN rating TEXT`);
-} catch {
-  // Column already exists
-}
-
-try {
-  db.exec(`ALTER TABLE stocks ADD COLUMN rating_score INTEGER`);
-} catch {
-  // Column already exists
-}
-
-try {
-  db.exec(`ALTER TABLE stocks ADD COLUMN is_hidden_gem INTEGER DEFAULT 0`);
-} catch {
-  // Column already exists
+function getClient(): Client {
+  if (!dbClient) {
+    dbClient = createClient({
+      url: process.env.TURSO_DATABASE_URL || 'file:./data/stocks.db',
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+  }
+  return dbClient;
 }
 
 export type Market = 'US' | 'Europe';
-
 export type DataSource = 'FMP' | 'Yahoo';
-
 export type Rating = 'Strong Buy' | 'Buy' | 'Hold' | 'Sell';
 
 export interface StockRow {
@@ -98,106 +44,151 @@ export interface StockRow {
   updated_at: string;
 }
 
-export function upsertStock(stock: Omit<StockRow, 'updated_at'>) {
-  const stmt = db.prepare(`
-    INSERT INTO stocks (symbol, name, sector, industry, market, data_source, market_cap, price, pe_ratio, qm_score, fair_pe, value_gap, valuation_status, rating, rating_score, is_hidden_gem, data_json, updated_at)
-    VALUES (@symbol, @name, @sector, @industry, @market, @data_source, @market_cap, @price, @pe_ratio, @qm_score, @fair_pe, @value_gap, @valuation_status, @rating, @rating_score, @is_hidden_gem, @data_json, datetime('now'))
-    ON CONFLICT(symbol) DO UPDATE SET
-      name = @name,
-      sector = @sector,
-      industry = @industry,
-      market = @market,
-      data_source = @data_source,
-      market_cap = @market_cap,
-      price = @price,
-      pe_ratio = @pe_ratio,
-      qm_score = @qm_score,
-      fair_pe = @fair_pe,
-      value_gap = @value_gap,
-      valuation_status = @valuation_status,
-      rating = @rating,
-      rating_score = @rating_score,
-      is_hidden_gem = @is_hidden_gem,
-      data_json = @data_json,
-      updated_at = datetime('now')
-  `);
-
-  stmt.run(stock);
+// Async database functions
+export async function upsertStock(stock: Omit<StockRow, 'updated_at'>) {
+  const db = getClient();
+  await db.execute({
+    sql: `INSERT INTO stocks (symbol, name, sector, industry, market, data_source, market_cap, price, pe_ratio, qm_score, fair_pe, value_gap, valuation_status, rating, rating_score, is_hidden_gem, data_json, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          ON CONFLICT(symbol) DO UPDATE SET
+            name = excluded.name,
+            sector = excluded.sector,
+            industry = excluded.industry,
+            market = excluded.market,
+            data_source = excluded.data_source,
+            market_cap = excluded.market_cap,
+            price = excluded.price,
+            pe_ratio = excluded.pe_ratio,
+            qm_score = excluded.qm_score,
+            fair_pe = excluded.fair_pe,
+            value_gap = excluded.value_gap,
+            valuation_status = excluded.valuation_status,
+            rating = excluded.rating,
+            rating_score = excluded.rating_score,
+            is_hidden_gem = excluded.is_hidden_gem,
+            data_json = excluded.data_json,
+            updated_at = datetime('now')`,
+    args: [
+      stock.symbol, stock.name, stock.sector, stock.industry, stock.market,
+      stock.data_source, stock.market_cap, stock.price, stock.pe_ratio,
+      stock.qm_score, stock.fair_pe, stock.value_gap, stock.valuation_status,
+      stock.rating, stock.rating_score, stock.is_hidden_gem, stock.data_json
+    ]
+  });
 }
 
-export function getAllStocks(): StockRow[] {
-  return db.prepare('SELECT * FROM stocks ORDER BY qm_score DESC, value_gap DESC').all() as StockRow[];
+export async function getAllStocks(): Promise<StockRow[]> {
+  const db = getClient();
+  const result = await db.execute('SELECT * FROM stocks ORDER BY qm_score DESC, value_gap DESC');
+  return result.rows as unknown as StockRow[];
 }
 
-export function getStockBySymbol(symbol: string): StockRow | undefined {
-  return db.prepare('SELECT * FROM stocks WHERE symbol = ?').get(symbol) as StockRow | undefined;
+export async function getStockBySymbol(symbol: string): Promise<StockRow | undefined> {
+  const db = getClient();
+  const result = await db.execute({ sql: 'SELECT * FROM stocks WHERE symbol = ?', args: [symbol] });
+  return result.rows[0] as unknown as StockRow | undefined;
 }
 
-export function getTopStocks(limit = 50): StockRow[] {
-  return db.prepare(`
-    SELECT * FROM stocks
-    WHERE qm_score >= 5
-    ORDER BY value_gap DESC
-    LIMIT ?
-  `).all(limit) as StockRow[];
+export async function getTopStocks(limit = 50): Promise<StockRow[]> {
+  const db = getClient();
+  const result = await db.execute({
+    sql: 'SELECT * FROM stocks WHERE qm_score >= 5 ORDER BY value_gap DESC LIMIT ?',
+    args: [limit]
+  });
+  return result.rows as unknown as StockRow[];
 }
 
-export function getStocksBySector(sector: string): StockRow[] {
-  return db.prepare(`
-    SELECT * FROM stocks
-    WHERE sector = ?
-    ORDER BY qm_score DESC, value_gap DESC
-  `).all(sector) as StockRow[];
+export async function getStocksBySector(sector: string): Promise<StockRow[]> {
+  const db = getClient();
+  const result = await db.execute({
+    sql: 'SELECT * FROM stocks WHERE sector = ? ORDER BY qm_score DESC, value_gap DESC',
+    args: [sector]
+  });
+  return result.rows as unknown as StockRow[];
 }
 
-export function getStockCount(): number {
-  const result = db.prepare('SELECT COUNT(*) as count FROM stocks').get() as { count: number };
-  return result.count;
+export async function getStockCount(): Promise<number> {
+  const db = getClient();
+  const result = await db.execute('SELECT COUNT(*) as count FROM stocks');
+  return (result.rows[0] as any)?.count || 0;
 }
 
-export function getLastUpdateTime(): string | null {
-  const result = db.prepare('SELECT MAX(updated_at) as last_update FROM stocks').get() as { last_update: string | null };
-  return result.last_update;
+export async function getLastUpdateTime(): Promise<string | null> {
+  const db = getClient();
+  const result = await db.execute('SELECT MAX(updated_at) as last_update FROM stocks');
+  return (result.rows[0] as any)?.last_update || null;
 }
 
-export function getSectors(): string[] {
-  const result = db.prepare('SELECT DISTINCT sector FROM stocks WHERE sector IS NOT NULL ORDER BY sector').all() as { sector: string }[];
-  return result.map(r => r.sector);
+export async function getSectors(): Promise<string[]> {
+  const db = getClient();
+  const result = await db.execute('SELECT DISTINCT sector FROM stocks WHERE sector IS NOT NULL ORDER BY sector');
+  return (result.rows as any[]).map(r => r.sector);
 }
 
-export function getMarkets(): Market[] {
-  const result = db.prepare('SELECT DISTINCT market FROM stocks WHERE market IS NOT NULL ORDER BY market').all() as { market: Market }[];
-  return result.map(r => r.market);
+export async function getMarkets(): Promise<Market[]> {
+  const db = getClient();
+  const result = await db.execute('SELECT DISTINCT market FROM stocks WHERE market IS NOT NULL ORDER BY market');
+  return (result.rows as any[]).map(r => r.market);
 }
 
-export function getStockCountByMarket(market: Market): number {
-  const result = db.prepare('SELECT COUNT(*) as count FROM stocks WHERE market = ?').get(market) as { count: number };
-  return result.count;
+export async function getStockCountByMarket(market: Market): Promise<number> {
+  const db = getClient();
+  const result = await db.execute({ sql: 'SELECT COUNT(*) as count FROM stocks WHERE market = ?', args: [market] });
+  return (result.rows[0] as any)?.count || 0;
 }
 
-export function getLastUpdateTimeByMarket(market: Market): string | null {
-  const result = db.prepare('SELECT MAX(updated_at) as last_update FROM stocks WHERE market = ?').get(market) as { last_update: string | null };
-  return result.last_update;
+export async function getLastUpdateTimeByMarket(market: Market): Promise<string | null> {
+  const db = getClient();
+  const result = await db.execute({ sql: 'SELECT MAX(updated_at) as last_update FROM stocks WHERE market = ?', args: [market] });
+  return (result.rows[0] as any)?.last_update || null;
 }
 
-// Users table for authentication
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    name TEXT,
-    image TEXT,
-    subscription_tier TEXT DEFAULT 'free',
-    trial_ends_at TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-  );
+// User functions for auth
+export async function getUserByEmail(email: string) {
+  const db = getClient();
+  const result = await db.execute({
+    sql: 'SELECT * FROM users WHERE email = ?',
+    args: [email]
+  });
+  return result.rows[0] as unknown as { id: string; email: string; subscription_tier: string; trial_ends_at: string | null } | undefined;
+}
 
-  CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-`);
+export async function createUser(user: {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+  subscriptionTier: string;
+  trialEndsAt: string;
+}) {
+  const db = getClient();
+  await db.execute({
+    sql: `INSERT INTO users (id, email, name, image, subscription_tier, trial_ends_at, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+    args: [user.id, user.email, user.name, user.image, user.subscriptionTier, user.trialEndsAt]
+  });
+}
 
-// Export function to get db instance (for use in other modules)
+export async function updateUserSubscription(userId: string, tier: string) {
+  const db = getClient();
+  await db.execute({
+    sql: 'UPDATE users SET subscription_tier = ? WHERE id = ?',
+    args: [tier, userId]
+  });
+}
+
+export async function getUserById(id: string) {
+  const db = getClient();
+  const result = await db.execute({
+    sql: 'SELECT id, subscription_tier, trial_ends_at FROM users WHERE id = ?',
+    args: [id]
+  });
+  return result.rows[0] as unknown as { id: string; subscription_tier: string; trial_ends_at: string | null } | undefined;
+}
+
+// Export getDb for backward compatibility (returns client)
 export function getDb() {
-  return db;
+  return getClient();
 }
 
-export default db;
+export default getClient();

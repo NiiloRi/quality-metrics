@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { auth, hasPremiumAccess } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   STOCK_DATABASE,
@@ -21,6 +22,15 @@ const anthropic = new Anthropic();
 
 export async function POST(request: Request) {
   try {
+    // Check authentication
+    const session = await auth();
+    if (!session?.user?.subscriptionTier || !hasPremiumAccess(session.user.subscriptionTier)) {
+      return NextResponse.json(
+        { success: false, error: 'Premium access required' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { symbol, type = 'single', symbols, model = 'claude-sonnet-4-20250514' } = body;
 

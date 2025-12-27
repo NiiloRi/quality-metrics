@@ -1,6 +1,15 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize Resend client only when API key is available
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
 
 // Your email to receive notifications
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
@@ -14,7 +23,8 @@ interface NewUserData {
 }
 
 export async function notifyNewUser(user: NewUserData) {
-  if (!process.env.RESEND_API_KEY) {
+  const resend = getResendClient();
+  if (!resend) {
     console.log('[Notification] New user registered:', user.email);
     return;
   }
@@ -58,7 +68,8 @@ export async function notifyNewUser(user: NewUserData) {
 }
 
 export async function notifyTrialExpiring(user: { email: string; name: string | null; daysLeft: number }) {
-  if (!process.env.RESEND_API_KEY) {
+  const resend = getResendClient();
+  if (!resend) {
     console.log('[Notification] Trial expiring for:', user.email, `(${user.daysLeft} days left)`);
     return;
   }

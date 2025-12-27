@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
-import { getDb } from './db';
+import { getUserByEmail, createUser, updateUserSubscription } from './db';
 import { notifyNewUser } from './notifications';
 
 // Extend the session type to include subscription info
@@ -29,28 +29,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (!user.email) return false;
 
       try {
-        const db = getDb();
-
         // Check if user exists
-        const existingUser = db
-          .prepare('SELECT * FROM users WHERE email = ?')
-          .get(user.email) as { id: string; subscription_tier: string } | undefined;
+        const existingUser = await getUserByEmail(user.email);
 
         if (!existingUser) {
           // Create new user with 14-day trial
           const trialEndsAt = new Date();
           trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
-          db.prepare(`
-            INSERT INTO users (id, email, name, image, subscription_tier, trial_ends_at, created_at)
-            VALUES (?, ?, ?, ?, 'trial', ?, datetime('now'))
-          `).run(
-            crypto.randomUUID(),
-            user.email,
-            user.name || null,
-            user.image || null,
-            trialEndsAt.toISOString()
-          );
+          await createUser({
+            id: crypto.randomUUID(),
+            email: user.email,
+            name: user.name || null,
+            image: user.image || null,
+            subscriptionTier: 'trial',
+            trialEndsAt: trialEndsAt.toISOString(),
+          });
 
           // Send notification about new user
           notifyNewUser({
@@ -71,14 +65,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user?.email) {
         try {
-          const db = getDb();
-          const dbUser = db
-            .prepare('SELECT id, subscription_tier, trial_ends_at FROM users WHERE email = ?')
-            .get(session.user.email) as {
-              id: string;
-              subscription_tier: string;
-              trial_ends_at: string | null;
-            } | undefined;
+          const dbUser = await getUserByEmail(session.user.email);
 
           if (dbUser) {
             session.user.id = dbUser.id;
@@ -90,8 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               if (trialEnd < new Date()) {
                 session.user.subscriptionTier = 'free';
                 // Update in DB
-                db.prepare('UPDATE users SET subscription_tier = ? WHERE id = ?')
-                  .run('free', dbUser.id);
+                await updateUserSubscription(dbUser.id, 'free');
               } else {
                 session.user.subscriptionTier = 'trial';
               }

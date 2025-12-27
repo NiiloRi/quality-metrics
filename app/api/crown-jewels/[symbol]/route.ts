@@ -6,6 +6,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { auth, hasPremiumAccess } from '@/lib/auth';
 import {
   STOCK_DATABASE,
   generateSingleStockAnalysisPrompt,
@@ -22,6 +23,15 @@ export async function GET(
   { params }: { params: Promise<{ symbol: string }> }
 ) {
   try {
+    // Check authentication
+    const session = await auth();
+    if (!session?.user?.subscriptionTier || !hasPremiumAccess(session.user.subscriptionTier)) {
+      return NextResponse.json(
+        { success: false, error: 'Premium access required' },
+        { status: 403 }
+      );
+    }
+
     const { symbol } = await params;
     const { searchParams } = new URL(request.url);
     const includeAnalysis = searchParams.get('analysis') === 'true';

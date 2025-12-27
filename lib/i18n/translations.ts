@@ -50,6 +50,16 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Footer
     'footer.dataProvider': 'Data provided by Financial Modeling Prep & Yahoo Finance',
+    'footer.description': 'Quality-focused stock analysis using fundamental metrics. Find undervalued quality stocks across global markets.',
+    'footer.product': 'Product',
+    'footer.screener': 'Stock Screener',
+    'footer.crownJewels': 'Crown Jewels',
+    'footer.legal': 'Legal',
+    'footer.privacy': 'Privacy Policy',
+    'footer.terms': 'Terms of Service',
+    'footer.rights': 'All rights reserved.',
+    'footer.disclaimer': 'Disclaimer:',
+    'footer.disclaimerText': 'This is not financial advice. All information is for educational purposes only. Always do your own research before making investment decisions.',
 
     // Crown Jewels page
     'crownJewels.title': 'Crown Jewels',
@@ -113,6 +123,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'user.free': 'Free',
     'user.upgrade': 'Upgrade',
     'user.signOut': 'Sign out',
+
+    // Cookie consent
+    'cookie.message': 'We use cookies to improve your experience. By continuing to use this site, you agree to our use of cookies.',
+    'cookie.accept': 'Accept',
+    'cookie.decline': 'Decline',
+
+    // FAQ
+    'faq.title': 'Frequently Asked Questions',
+    'faq.subtitle': 'Everything you need to know about Quality Metrics',
   },
 
   fi: {
@@ -158,6 +177,16 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Footer
     'footer.dataProvider': 'Data: Financial Modeling Prep & Yahoo Finance',
+    'footer.description': 'Laatupohjainen osakeanalyysi fundamenttimittareilla. Löydä aliarvostettuja laatuosakkeita globaaleilta markkinoilta.',
+    'footer.product': 'Tuote',
+    'footer.screener': 'Osakescreener',
+    'footer.crownJewels': 'Kruununjalokivet',
+    'footer.legal': 'Lailliset',
+    'footer.privacy': 'Tietosuojakäytäntö',
+    'footer.terms': 'Käyttöehdot',
+    'footer.rights': 'Kaikki oikeudet pidätetään.',
+    'footer.disclaimer': 'Vastuuvapauslauseke:',
+    'footer.disclaimerText': 'Tämä ei ole sijoitusneuvontaa. Kaikki tiedot ovat vain opetustarkoituksiin. Tee aina oma tutkimuksesi ennen sijoituspäätöksiä.',
 
     // Crown Jewels page
     'crownJewels.title': 'Kruununjalokivet',
@@ -221,6 +250,15 @@ export const translations: Record<Language, Record<string, string>> = {
     'user.free': 'Ilmainen',
     'user.upgrade': 'Päivitä',
     'user.signOut': 'Kirjaudu ulos',
+
+    // Cookie consent
+    'cookie.message': 'Käytämme evästeitä parantaaksemme kokemustasi. Jatkamalla sivuston käyttöä hyväksyt evästeiden käytön.',
+    'cookie.accept': 'Hyväksy',
+    'cookie.decline': 'Hylkää',
+
+    // FAQ
+    'faq.title': 'Usein kysytyt kysymykset',
+    'faq.subtitle': 'Kaikki mitä sinun tarvitsee tietää Quality Metricsistä',
   },
 };
 

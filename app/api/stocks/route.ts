@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAllStocks, getSectors, getStockCount, getLastUpdateTime, getMarkets, type StockRow, type Market, type Rating } from '@/lib/db';
+import { convertArrayToDemo, isDemoMode } from '@/lib/demo-data';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   const limit = parseInt(searchParams.get('limit') || '100');
 
   try {
-    let stocks = getAllStocks();
+    let stocks = await getAllStocks();
 
     // Apply filters
     if (minScore > 0) {
@@ -85,13 +86,24 @@ export async function GET(request: Request) {
     // Limit
     stocks = stocks.slice(0, limit);
 
+    const [totalCount, sectors, markets, lastUpdate] = await Promise.all([
+      getStockCount(),
+      getSectors(),
+      getMarkets(),
+      getLastUpdateTime(),
+    ]);
+
+    // Convert to demo data if demo mode is enabled
+    const outputStocks = convertArrayToDemo(stocks);
+
     return NextResponse.json({
-      stocks,
-      totalCount: getStockCount(),
+      stocks: outputStocks,
+      totalCount,
       filteredCount: stocks.length,
-      sectors: getSectors(),
-      markets: getMarkets(),
-      lastUpdate: getLastUpdateTime(),
+      sectors,
+      markets,
+      lastUpdate,
+      demoMode: isDemoMode(),
     });
   } catch (error) {
     console.error('Stocks API error:', error);

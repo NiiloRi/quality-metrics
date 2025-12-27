@@ -1,11 +1,10 @@
 /**
  * Database access for Crown Jewels data
  *
- * Reads from SQLite database for real-time stock data
+ * Uses Turso (libSQL) for cloud deployment
  */
 
-import Database from 'better-sqlite3';
-import path from 'path';
+import { createClient } from '@libsql/client';
 
 export interface CrownJewelRow {
   symbol: string;
@@ -66,167 +65,120 @@ export interface ProcessedCrownJewel {
   scannedAt: string;
 }
 
-let dbInstance: Database.Database | null = null;
-
-function getDatabase(): Database.Database {
-  if (!dbInstance) {
-    const dbPath = path.join(process.cwd(), 'data', 'stocks.db');
-    dbInstance = new Database(dbPath, { readonly: true });
-  }
-  return dbInstance;
+// Create database client - uses Turso in production, local file in development
+function getClient() {
+  return createClient({
+    url: process.env.TURSO_DATABASE_URL || 'file:./data/stocks.db',
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
 }
 
-export function getAllCrownJewelsFromDB(): ProcessedCrownJewel[] {
-  const db = getDatabase();
+function calculateBaseScore(row: CrownJewelRow): number {
+  let score = 0;
 
-  // Check if table exists
-  const tableExists = db.prepare(`
-    SELECT name FROM sqlite_master WHERE type='table' AND name='crown_jewels'
-  `).get();
+  // QM Score contributes 0-40 points
+  score += (row.qm_score / 8) * 40;
 
-  if (!tableExists) {
-    console.log('crown_jewels table does not exist yet');
+  // Value Gap contributes 0-30 points
+  const valueGap = row.value_gap_percent || 0;
+  score += Math.min(valueGap / 100, 1) * 30;
+
+  // Growth signals contribute 0-15 points
+  score += (row.growth_signals / 3) * 15;
+
+  // Quality metrics contribute 0-15 points
+  const roic = row.roic5y_percent || 0;
+  if (roic > 30) score += 15;
+  else if (roic > 20) score += 10;
+  else if (roic > 10) score += 5;
+
+  return Math.round(score);
+}
+
+export async function getAllCrownJewelsFromDB(): Promise<ProcessedCrownJewel[]> {
+  const db = getClient();
+
+  try {
+    const result = await db.execute(`
+      SELECT * FROM crown_jewels
+      WHERE tier IS NOT NULL
+      ORDER BY confidence_score DESC
+    `);
+
+    return (result.rows as unknown as CrownJewelRow[]).map(row => {
+      const baseScore = calculateBaseScore(row);
+      return {
+        symbol: row.symbol,
+        name: row.name,
+        sector: row.sector,
+        industry: row.industry,
+        marketCapB: row.market_cap_b,
+        price: row.price,
+        qmScore: row.qm_score,
+        tier: row.tier!,
+        baseScore,
+        adjustedScore: baseScore, // Will be adjusted by macro analyzer
+        macroBonus: 0,
+        valueGapPercent: row.value_gap_percent || 0,
+        roic5yPercent: row.roic5y_percent || 0,
+        fcfYieldPercent: row.fcf_yield_percent || 0,
+        revenueGrowth5yPercent: row.revenue_growth_5y_percent,
+        incomeGrowth5yPercent: row.income_growth_5y_percent,
+        sharesChange5yPercent: row.shares_change_5y_percent,
+        hasBuybacks: (row.shares_change_5y_percent || 0) < 0,
+        scannedAt: row.scanned_at,
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching crown jewels:', error);
     return [];
   }
-
-  const rows = db.prepare(`
-    SELECT * FROM crown_jewels
-    WHERE tier IS NOT NULL
-    ORDER BY confidence_score DESC
-  `).all() as CrownJewelRow[];
-
-  return rows.map(row => ({
-    symbol: row.symbol,
-    name: row.name,
-    sector: row.sector,
-    industry: row.industry,
-    marketCapB: row.market_cap_b,
-    price: row.price,
-    qmScore: row.qm_score,
-    tier: row.tier as 'crown-jewel' | 'diamond' | 'gold' | 'silver',
-    baseScore: row.confidence_score,
-    adjustedScore: row.confidence_score, // Will be adjusted by macro
-    macroBonus: 0, // Will be calculated
-    valueGapPercent: row.value_gap_percent || 0,
-    roic5yPercent: row.roic5y_percent || 0,
-    fcfYieldPercent: row.fcf_yield_percent || 0,
-    revenueGrowth5yPercent: row.revenue_growth_5y_percent,
-    incomeGrowth5yPercent: row.income_growth_5y_percent,
-    sharesChange5yPercent: row.shares_change_5y_percent,
-    hasBuybacks: (row.shares_change_5y_percent || 0) < 0,
-    scannedAt: row.scanned_at,
-  }));
 }
 
-export function getCrownJewelBySymbol(symbol: string): ProcessedCrownJewel | null {
-  const db = getDatabase();
-
-  const tableExists = db.prepare(`
-    SELECT name FROM sqlite_master WHERE type='table' AND name='crown_jewels'
-  `).get();
-
-  if (!tableExists) {
-    return null;
-  }
-
-  const row = db.prepare(`
-    SELECT * FROM crown_jewels WHERE symbol = ?
-  `).get(symbol) as CrownJewelRow | undefined;
-
-  if (!row) return null;
-
-  return {
-    symbol: row.symbol,
-    name: row.name,
-    sector: row.sector,
-    industry: row.industry,
-    marketCapB: row.market_cap_b,
-    price: row.price,
-    qmScore: row.qm_score,
-    tier: row.tier as 'crown-jewel' | 'diamond' | 'gold' | 'silver',
-    baseScore: row.confidence_score,
-    adjustedScore: row.confidence_score,
-    macroBonus: 0,
-    valueGapPercent: row.value_gap_percent || 0,
-    roic5yPercent: row.roic5y_percent || 0,
-    fcfYieldPercent: row.fcf_yield_percent || 0,
-    revenueGrowth5yPercent: row.revenue_growth_5y_percent,
-    incomeGrowth5yPercent: row.income_growth_5y_percent,
-    sharesChange5yPercent: row.shares_change_5y_percent,
-    hasBuybacks: (row.shares_change_5y_percent || 0) < 0,
-    scannedAt: row.scanned_at,
-  };
-}
-
-export function getDBStats(): {
+export async function getDBStats(): Promise<{
   totalScanned: number;
+  lastScan: string | null;
   crownJewelCount: number;
   diamondCount: number;
   goldCount: number;
   silverCount: number;
-  lastScan: string | null;
-} {
-  const db = getDatabase();
+}> {
+  const db = getClient();
 
-  const tableExists = db.prepare(`
-    SELECT name FROM sqlite_master WHERE type='table' AND name='crown_jewels'
-  `).get();
+  try {
+    const [total, lastScan, tiers] = await Promise.all([
+      db.execute('SELECT COUNT(*) as count FROM crown_jewels'),
+      db.execute('SELECT MAX(scanned_at) as last_scan FROM crown_jewels'),
+      db.execute(`
+        SELECT tier, COUNT(*) as count
+        FROM crown_jewels
+        WHERE tier IS NOT NULL
+        GROUP BY tier
+      `),
+    ]);
 
-  if (!tableExists) {
+    const tierCounts: Record<string, number> = {};
+    for (const row of tiers.rows as unknown as { tier: string; count: number }[]) {
+      tierCounts[row.tier] = row.count;
+    }
+
+    return {
+      totalScanned: (total.rows[0] as any)?.count || 0,
+      lastScan: (lastScan.rows[0] as any)?.last_scan || null,
+      crownJewelCount: tierCounts['crown-jewel'] || 0,
+      diamondCount: tierCounts['diamond'] || 0,
+      goldCount: tierCounts['gold'] || 0,
+      silverCount: tierCounts['silver'] || 0,
+    };
+  } catch (error) {
+    console.error('Error fetching DB stats:', error);
     return {
       totalScanned: 0,
+      lastScan: null,
       crownJewelCount: 0,
       diamondCount: 0,
       goldCount: 0,
       silverCount: 0,
-      lastScan: null,
     };
   }
-
-  const total = db.prepare('SELECT COUNT(*) as count FROM crown_jewels').get() as { count: number };
-  const tierCounts = db.prepare(`
-    SELECT tier, COUNT(*) as count
-    FROM crown_jewels
-    WHERE tier IS NOT NULL
-    GROUP BY tier
-  `).all() as { tier: string; count: number }[];
-
-  const lastScan = db.prepare(`
-    SELECT MAX(scanned_at) as last FROM crown_jewels
-  `).get() as { last: string | null };
-
-  const counts: Record<string, number> = {};
-  tierCounts.forEach(t => { counts[t.tier] = t.count; });
-
-  return {
-    totalScanned: total.count,
-    crownJewelCount: counts['crown-jewel'] || 0,
-    diamondCount: counts['diamond'] || 0,
-    goldCount: counts['gold'] || 0,
-    silverCount: counts['silver'] || 0,
-    lastScan: lastScan.last,
-  };
-}
-
-export function getSectorBreakdown(): { sector: string; count: number; avgScore: number }[] {
-  const db = getDatabase();
-
-  const tableExists = db.prepare(`
-    SELECT name FROM sqlite_master WHERE type='table' AND name='crown_jewels'
-  `).get();
-
-  if (!tableExists) {
-    return [];
-  }
-
-  return db.prepare(`
-    SELECT
-      sector,
-      COUNT(*) as count,
-      ROUND(AVG(confidence_score), 1) as avgScore
-    FROM crown_jewels
-    WHERE tier IS NOT NULL
-    GROUP BY sector
-    ORDER BY count DESC
-  `).all() as { sector: string; count: number; avgScore: number }[];
 }

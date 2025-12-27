@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { auth, hasPremiumAccess } from '@/lib/auth';
 import {
   STOCK_DATABASE,
   generateComparisonPrompt,
@@ -20,6 +21,15 @@ import {
 
 export async function POST(request: Request) {
   try {
+    // Check authentication
+    const session = await auth();
+    if (!session?.user?.subscriptionTier || !hasPremiumAccess(session.user.subscriptionTier)) {
+      return NextResponse.json(
+        { success: false, error: 'Premium access required' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { stocks, includePrompt } = body;
 

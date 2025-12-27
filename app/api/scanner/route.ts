@@ -37,7 +37,7 @@ async function processStock(symbol: string, market: Market): Promise<{ success: 
       metrics: data.metrics?.[0], // Latest metrics
     });
 
-    upsertStock({
+    await upsertStock({
       symbol,
       name: data.profile.companyName,
       sector: data.profile.sector,
@@ -125,26 +125,36 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const market = (searchParams.get('market') as Market) || 'US';
 
+  const [stockCount, totalStockCount, lastUpdate, usStockCount, usLastUpdate, europeStockCount, europeLastUpdate] = await Promise.all([
+    getStockCountByMarket(market),
+    getStockCount(),
+    getLastUpdateTimeByMarket(market),
+    getStockCountByMarket('US'),
+    getLastUpdateTimeByMarket('US'),
+    getStockCountByMarket('Europe'),
+    getLastUpdateTimeByMarket('Europe'),
+  ]);
+
   return NextResponse.json({
     market,
     isScanning: scannerState[market].isScanning,
     progress: scannerState[market].progress,
-    stockCount: getStockCountByMarket(market),
-    totalStockCount: getStockCount(),
-    lastUpdate: getLastUpdateTimeByMarket(market),
+    stockCount,
+    totalStockCount,
+    lastUpdate,
     totalStocks: getListStockCount(market),
     markets: {
       US: {
         isScanning: scannerState.US.isScanning,
-        stockCount: getStockCountByMarket('US'),
+        stockCount: usStockCount,
         totalStocks: US_STOCKS.length,
-        lastUpdate: getLastUpdateTimeByMarket('US'),
+        lastUpdate: usLastUpdate,
       },
       Europe: {
         isScanning: scannerState.Europe.isScanning,
-        stockCount: getStockCountByMarket('Europe'),
+        stockCount: europeStockCount,
         totalStocks: EUROPE_STOCKS.length,
-        lastUpdate: getLastUpdateTimeByMarket('Europe'),
+        lastUpdate: europeLastUpdate,
       },
     },
   });
@@ -190,6 +200,7 @@ export async function POST(request: Request) {
       scannerState[market].progress.errors = results.failed.length;
 
       const hasMore = endIndex < stockList.length;
+      const finalStockCount = await getStockCountByMarket(market);
 
       return NextResponse.json({
         success: true,
@@ -202,7 +213,7 @@ export async function POST(request: Request) {
         },
         hasMore,
         nextIndex: hasMore ? endIndex : null,
-        stockCount: getStockCountByMarket(market),
+        stockCount: finalStockCount,
       });
     } finally {
       scannerState[market].isScanning = false;

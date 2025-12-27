@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { auth, hasPremiumAccess } from '@/lib/auth';
 import {
   STOCK_DATABASE,
   getAllCrownJewelsRanked,
@@ -24,6 +25,7 @@ import {
   getDBStats,
   type ProcessedCrownJewel,
 } from '@/lib/database';
+import { convertArrayToDemo, isDemoMode, DEMO_CROWN_JEWELS } from '@/lib/demo-data';
 
 interface CombinedStock {
   symbol: string;
@@ -48,6 +50,15 @@ interface CombinedStock {
 
 export async function GET(request: Request) {
   try {
+    // Check authentication
+    const session = await auth();
+    if (!session?.user?.subscriptionTier || !hasPremiumAccess(session.user.subscriptionTier)) {
+      return NextResponse.json(
+        { success: false, error: 'Premium access required' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const sector = searchParams.get('sector');
     const tier = searchParams.get('tier');
@@ -59,7 +70,7 @@ export async function GET(request: Request) {
     // Get database stocks
     if (source === 'db' || source === 'combined') {
       try {
-        const dbStocks = getAllCrownJewelsFromDB();
+        const dbStocks = await getAllCrownJewelsFromDB();
         stocks = dbStocks.map(s => {
           // Calculate macro-adjusted score
           const macroResult = calculateMacroAdjustedScore(
@@ -153,11 +164,17 @@ export async function GET(request: Request) {
     }).sort((a, b) => b.score - a.score);
 
     // Get DB stats
-    const dbStats = getDBStats();
+    const dbStats = await getDBStats();
+
+    // Use demo data if demo mode is enabled
+    const outputStocks = isDemoMode()
+      ? DEMO_CROWN_JEWELS.map(s => ({ ...s, source: 'demo' as const }))
+      : convertArrayToDemo(stocks);
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
+      demoMode: isDemoMode(),
 
       // Makroympäristö
       macroEnvironment: {
@@ -180,8 +197,8 @@ export async function GET(request: Request) {
       },
 
       // Crown Jewels
-      totalCount: stocks.length,
-      crownJewels: stocks.map(s => ({
+      totalCount: outputStocks.length,
+      crownJewels: outputStocks.map(s => ({
         symbol: s.symbol,
         name: s.name,
         sector: s.sector,
@@ -215,13 +232,13 @@ export async function GET(request: Request) {
 
       // Yhteenveto
       summary: {
-        crownJewelCount: stocks.filter(s => s.tier === 'crown-jewel').length,
-        diamondCount: stocks.filter(s => s.tier === 'diamond').length,
-        goldCount: stocks.filter(s => s.tier === 'gold').length,
-        silverCount: stocks.filter(s => s.tier === 'silver').length,
+        crownJewelCount: outputStocks.filter(s => s.tier === 'crown-jewel').length,
+        diamondCount: outputStocks.filter(s => s.tier === 'diamond').length,
+        goldCount: outputStocks.filter(s => s.tier === 'gold').length,
+        silverCount: outputStocks.filter(s => s.tier === 'silver').length,
         topSector: sectorStats[0]?.sector || 'N/A',
-        averageValueGap: stocks.length > 0
-          ? Math.round(stocks.reduce((sum, s) => sum + s.valueGapPercent, 0) / stocks.length)
+        averageValueGap: outputStocks.length > 0
+          ? Math.round(outputStocks.reduce((sum, s) => sum + s.valueGapPercent, 0) / outputStocks.length)
           : 0,
         dbScanned: dbStats.totalScanned,
         dbHiddenGems: dbStats.crownJewelCount + dbStats.diamondCount + dbStats.goldCount + dbStats.silverCount,
