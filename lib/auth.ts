@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { getDb } from './db';
+import { notifyNewUser } from './notifications';
 
 // Extend the session type to include subscription info
 declare module 'next-auth' {
@@ -50,6 +51,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             user.image || null,
             trialEndsAt.toISOString()
           );
+
+          // Send notification about new user
+          notifyNewUser({
+            email: user.email,
+            name: user.name || null,
+            subscriptionTier: 'trial',
+            trialEndsAt: trialEndsAt.toISOString(),
+          }).catch(console.error);
         }
 
         return true;
