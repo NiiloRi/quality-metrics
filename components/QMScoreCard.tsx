@@ -1,8 +1,21 @@
 'use client';
 
 import { CheckCircle2, XCircle } from 'lucide-react';
+import Image from 'next/image';
 import type { QMScore } from '@/types/stock';
 import { formatNumber, formatPercent } from '@/lib/qm-calculator';
+
+// Icon mapping for each pillar (in order)
+const PILLAR_ICONS = [
+  '/icons/1-pe-5y.png',
+  '/icons/2-roic-5y.png',
+  '/icons/3-shares-buyback.png',
+  '/icons/4-fcf-growth.png',
+  '/icons/5-income-growth.png',
+  '/icons/6-revenue-growth.png',
+  '/icons/7-debt-ratio.png',
+  '/icons/8-pfcf-5y.png',
+];
 
 interface QMScoreCardProps {
   qmScore: QMScore;
@@ -54,7 +67,7 @@ function ScoreRing({ score, maxScore }: { score: number; maxScore: number }) {
   );
 }
 
-function PillarRow({ pillar }: { pillar: QMScore['pillars'][0] }) {
+function PillarRow({ pillar, index }: { pillar: QMScore['pillars'][0]; index: number }) {
   const formatValue = (value: number | null, name: string): string => {
     if (value === null || value === undefined) return 'N/A';
     if (name.includes('ROIC') || name.includes('%')) return formatPercent(value);
@@ -66,13 +79,37 @@ function PillarRow({ pillar }: { pillar: QMScore['pillars'][0] }) {
     return value.toFixed(2);
   };
 
+  const iconSrc = PILLAR_ICONS[index] || PILLAR_ICONS[0];
+  const hasIcon = index < PILLAR_ICONS.length;
+
   return (
     <div className="flex items-center gap-3 py-3 border-b border-[var(--border)] last:border-0">
-      <div className={`p-1 rounded-full ${pillar.passed ? 'text-[var(--success-light)]' : 'text-[var(--danger-light)]'}`}>
-        {pillar.passed ? (
-          <CheckCircle2 className="w-5 h-5" />
+      <div className="relative w-10 h-10 flex-shrink-0">
+        {hasIcon ? (
+          <Image
+            src={iconSrc}
+            alt={pillar.name}
+            width={40}
+            height={40}
+            className="object-contain"
+          />
         ) : (
-          <XCircle className="w-5 h-5" />
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${pillar.passed ? 'bg-[var(--success)]/20' : 'bg-[var(--danger)]/20'}`}>
+            {pillar.passed ? (
+              <CheckCircle2 className="w-5 h-5 text-[var(--success)]" />
+            ) : (
+              <XCircle className="w-5 h-5 text-[var(--danger)]" />
+            )}
+          </div>
+        )}
+        {hasIcon && (
+          <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full ${pillar.passed ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'}`}>
+            {pillar.passed ? (
+              <CheckCircle2 className="w-3 h-3 text-white" />
+            ) : (
+              <XCircle className="w-3 h-3 text-white" />
+            )}
+          </div>
         )}
       </div>
       <div className="flex-1 min-w-0">
@@ -132,7 +169,7 @@ export default function QMScoreCard({ qmScore }: QMScoreCardProps) {
         <h3 className="text-sm font-semibold text-[var(--foreground-muted)] mb-3">QM Criteria</h3>
         <div className="bg-[var(--background-secondary)] rounded-xl p-4">
           {qmScore.pillars.map((pillar, index) => (
-            <PillarRow key={index} pillar={pillar} />
+            <PillarRow key={index} pillar={pillar} index={index} />
           ))}
         </div>
       </div>

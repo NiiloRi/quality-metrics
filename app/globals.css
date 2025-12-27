@@ -118,8 +118,7 @@ h1, h2, h3 {
 .card-professional:hover {
   background: var(--card-hover);
   border-color: var(--border-hover);
-  transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 /* ===============================
@@ -308,7 +307,7 @@ h1, h2, h3 {
 .tab-nav-item.active {
   background: var(--card);
   color: var(--primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 20px var(--glow-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* ===============================
@@ -429,8 +428,8 @@ h1, h2, h3 {
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px var(--glow-primary), 0 0 40px var(--glow-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
 .btn-primary::after {
@@ -459,7 +458,6 @@ h1, h2, h3 {
 .btn-secondary:hover {
   border-color: var(--primary);
   color: var(--primary);
-  box-shadow: 0 0 20px var(--glow-primary);
 }
 
 /* ===============================
@@ -485,7 +483,6 @@ h1, h2, h3 {
 
 .pill-gold:hover {
   background: rgba(245, 158, 11, 0.25);
-  box-shadow: 0 0 15px var(--glow-primary);
 }
 
 .pill-success {
@@ -517,7 +514,7 @@ input, select {
 input:focus, select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1), 0 0 20px var(--glow-primary);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
 }
 
 input::placeholder {

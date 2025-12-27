@@ -17,30 +17,30 @@ export default function SearchBar() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-lg">
+    <form onSubmit={handleSubmit} className="w-full">
       <div
-        className={`flex items-center gap-3 px-4 py-3 bg-[var(--card)] rounded-xl border-2 transition-all ${
+        className={`flex items-center gap-2 px-3 py-2 bg-[var(--background-secondary)] rounded-lg border transition-all ${
           isFocused
-            ? 'border-[var(--primary)] shadow-lg shadow-[var(--glow-primary)]'
+            ? 'border-[var(--primary)]'
             : 'border-[var(--border)] hover:border-[var(--border-hover)]'
         }`}
       >
-        <Search className="w-5 h-5 text-[var(--foreground-muted)]" />
+        <Search className="w-4 h-4 text-[var(--foreground-muted)] flex-shrink-0" />
         <input
           type="text"
-          placeholder="Search stocks (e.g., AAPL, MSFT)"
+          placeholder="Search stocks..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className="flex-1 bg-transparent text-[15px] text-[var(--foreground)] placeholder-[var(--foreground-muted)] outline-none border-none p-0"
+          className="flex-1 bg-transparent text-sm text-[var(--foreground)] placeholder-[var(--foreground-muted)] outline-none border-none p-0 min-w-0"
         />
         {query && (
           <button
             type="submit"
-            className="btn-primary px-4 py-1.5 text-sm"
+            className="px-3 py-1 text-xs font-medium bg-[var(--primary)] text-white rounded-md hover:bg-[var(--primary-dark)] transition-colors flex-shrink-0"
           >
-            Search
+            Go
           </button>
         )}
       </div>

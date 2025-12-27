@@ -19,7 +19,7 @@ export default function GlowCard({
   return (
     <div className="relative group h-full">
       <div
-        className={`absolute inset-0 bg-gradient-to-r ${glowColors[glowColor]} rounded-xl blur-md opacity-0 group-hover:opacity-40 dark:group-hover:opacity-50 transition duration-500`}
+        className={`absolute inset-0 bg-gradient-to-r ${glowColors[glowColor]} rounded-xl blur-sm opacity-0 group-hover:opacity-20 transition duration-300`}
       />
       <div className={`relative card-professional h-full ${className}`}>
         {children}
