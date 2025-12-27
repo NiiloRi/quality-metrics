@@ -83,6 +83,22 @@ export default function Logo({ size = 'md', showText = true }: LogoProps) {
             <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
               <feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="#000000" floodOpacity="0.3"/>
             </filter>
+
+            {/* Shooting star trail gradient */}
+            <linearGradient id="starTrail" x1="100%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+              <stop offset="60%" stopColor="#ffffff" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.95" />
+            </linearGradient>
+
+            {/* Diamond glow filter */}
+            <filter id="diamondGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="1" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
 
           {/* Background circle with gradient */}
@@ -121,14 +137,14 @@ export default function Logo({ size = 'md', showText = true }: LogoProps) {
             fill="url(#logoShine)"
           />
 
-          {/* Chart bars - green to red pattern, positioned lower */}
+          {/* Chart bars - parabolic growth pattern (exponential) */}
           <g filter="url(#dropShadow)">
-            {/* Bar 1 - Green (best) */}
+            {/* Bar 1 - Green (tallest, exponential peak) */}
             <rect
               x="14"
-              y="30"
+              y="24"
               width="8"
-              height="18"
+              height="24"
               rx="2"
               fill="url(#barGreen)"
             />
@@ -144,44 +160,47 @@ export default function Logo({ size = 'md', showText = true }: LogoProps) {
             {/* Bar 3 - Yellow/Orange */}
             <rect
               x="34"
-              y="38"
+              y="40"
               width="8"
-              height="10"
+              height="8"
               rx="2"
               fill="url(#barYellow)"
             />
-            {/* Bar 4 - Red (worst) */}
+            {/* Bar 4 - Red (smallest, start of growth) */}
             <rect
               x="44"
-              y="42"
+              y="44"
               width="8"
-              height="6"
+              height="4"
               rx="2"
               fill="url(#barRed)"
             />
           </g>
 
-          {/* Upward trend line - positioned above bars */}
+          {/* Shooting star trail - parabolic curve matching bar growth */}
           <path
-            d="M16 24 Q22 20, 28 17 T42 12 L48 10"
-            stroke="white"
-            strokeWidth="2.5"
+            d="M50 40 C45 38, 40 34, 35 28 C30 22, 22 16, 14 12"
+            stroke="url(#starTrail)"
+            strokeWidth="3"
             strokeLinecap="round"
             fill="none"
-            opacity="0.95"
             filter="url(#dropShadow)"
           />
 
-          {/* Arrow head */}
-          <path
-            d="M44 12 L48.5 9.5 L49 14"
-            stroke="white"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-            opacity="0.95"
-          />
+          {/* Sparkle effects along the parabolic trail */}
+          <circle cx="44" cy="36" r="1" fill="white" opacity="0.5" />
+          <circle cx="38" cy="30" r="1.2" fill="white" opacity="0.6" />
+          <circle cx="30" cy="22" r="1" fill="white" opacity="0.7" />
+          <circle cx="22" cy="16" r="0.8" fill="white" opacity="0.5" />
+
+          {/* Diamond at the leading edge */}
+          <g filter="url(#diamondGlow)">
+            <path
+              d="M14 12 L10 16 L14 20 L18 16 Z"
+              fill="white"
+              opacity="0.95"
+            />
+          </g>
 
           {/* Subtle inner border highlight */}
           <circle

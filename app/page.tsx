@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { TrendingUp, Filter, CheckCircle2, ArrowRight, Zap, Shield, Target } from 'lucide-react';
 import SearchBar from '@/components/SearchBar';
 import Logo from '@/components/Logo';
@@ -67,21 +68,36 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="py-16 sm:py-24">
+      <section className="py-12 sm:py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl mx-auto text-center">
-            <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
-              <span className="text-[var(--foreground)]">{t('hero.discover')} </span>
-              <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 bg-clip-text text-transparent">{t('hero.qualityStocks')}</span>
-            </h1>
-            <p className="mt-6 text-lg text-[var(--foreground-secondary)] leading-relaxed">
-              {t('hero.subtitle')}
-            </p>
-          </div>
+          <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
+            {/* Text - Left */}
+            <div className="flex-1 text-center lg:text-left">
+              <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
+                <span className="text-[var(--foreground)]">{t('hero.discover')} </span>
+                <span className="bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 bg-clip-text text-transparent">{t('hero.qualityStocks')}</span>
+              </h1>
+              <p className="mt-6 text-lg text-[var(--foreground-secondary)] leading-relaxed max-w-xl lg:max-w-none">
+                {t('hero.subtitle')}
+              </p>
 
-          {/* Search - Mobile */}
-          <div className="sm:hidden max-w-md mx-auto mt-8">
-            <SearchBar />
+              {/* Search - Mobile */}
+              <div className="sm:hidden max-w-md mx-auto lg:mx-0 mt-8">
+                <SearchBar />
+              </div>
+            </div>
+
+            {/* Mascot - Right */}
+            <div className="flex-1 flex justify-center lg:justify-end">
+              <Image
+                src="/mascot.png"
+                alt="QM Bull Mascot - No BS, QM!"
+                width={500}
+                height={500}
+                className="w-80 sm:w-96 lg:w-[30rem] drop-shadow-2xl"
+                priority
+              />
+            </div>
           </div>
         </div>
       </section>
