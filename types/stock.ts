@@ -8,6 +8,7 @@ export interface IncomeStatement {
   grossProfit: number;
   operatingIncome: number;
   eps: number;
+  weightedAverageShsOut: number;  // Shares outstanding for year
 }
 
 export interface BalanceSheet {

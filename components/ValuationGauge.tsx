@@ -13,10 +13,10 @@ function ValuationRing({ percentage, status }: { percentage: number; status: str
   const strokeDashoffset = circumference - (clampedPercentage / 100) * circumference;
 
   const getColor = () => {
-    if (status === 'undervalued') return '#10b981';
-    if (status === 'fair') return '#f59e0b';
-    if (status === 'overvalued') return '#ef4444';
-    return '#94a3b8';
+    if (status === 'undervalued') return 'var(--success)';
+    if (status === 'fair') return 'var(--primary)';
+    if (status === 'overvalued') return 'var(--danger)';
+    return 'var(--foreground-muted)';
   };
 
   return (
@@ -26,7 +26,7 @@ function ValuationRing({ percentage, status }: { percentage: number; status: str
           cx="56"
           cy="56"
           r="45"
-          stroke="#e2e8f0"
+          stroke="var(--background-secondary)"
           strokeWidth="6"
           fill="none"
         />
@@ -53,34 +53,30 @@ export default function ValuationGauge({ valuation }: ValuationGaugeProps) {
       case 'undervalued':
         return {
           icon: TrendingUp,
-          bg: 'bg-emerald-50',
-          text: 'text-emerald-700',
-          border: 'border-emerald-200',
-          iconBg: 'bg-emerald-100',
+          bg: 'bg-emerald-500/15',
+          text: 'text-emerald-300',
+          border: 'border-emerald-500/30',
         };
       case 'fair':
         return {
           icon: Minus,
-          bg: 'bg-amber-50',
-          text: 'text-amber-700',
-          border: 'border-amber-200',
-          iconBg: 'bg-amber-100',
+          bg: 'bg-amber-500/15',
+          text: 'text-amber-300',
+          border: 'border-amber-500/30',
         };
       case 'overvalued':
         return {
           icon: TrendingDown,
-          bg: 'bg-red-50',
-          text: 'text-red-700',
-          border: 'border-red-200',
-          iconBg: 'bg-red-100',
+          bg: 'bg-red-500/15',
+          text: 'text-red-300',
+          border: 'border-red-500/30',
         };
       default:
         return {
           icon: AlertCircle,
-          bg: 'bg-gray-50',
-          text: 'text-gray-600',
-          border: 'border-gray-200',
-          iconBg: 'bg-gray-100',
+          bg: 'bg-[var(--background-secondary)]',
+          text: 'text-[var(--foreground-muted)]',
+          border: 'border-[var(--border)]',
         };
     }
   };
@@ -101,8 +97,8 @@ export default function ValuationGauge({ valuation }: ValuationGaugeProps) {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Valuation</h2>
-          <p className="text-sm text-gray-500 mt-1">Based on quality-adjusted fair P/E</p>
+          <h2 className="text-lg font-bold text-[var(--foreground)] font-heading">Valuation</h2>
+          <p className="text-sm text-[var(--foreground-muted)] mt-1">Based on quality-adjusted fair P/E</p>
         </div>
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${config.bg} ${config.border} border`}>
           <StatusIcon className={`w-4 h-4 ${config.text}`} />
@@ -112,7 +108,7 @@ export default function ValuationGauge({ valuation }: ValuationGaugeProps) {
 
       {/* Valuation Gauge */}
       <div className="mb-6">
-        <div className="flex justify-between text-xs font-medium text-gray-400 mb-2 px-1">
+        <div className="flex justify-between text-xs font-medium text-[var(--foreground-muted)] mb-2 px-1">
           <span>Undervalued</span>
           <span>Fair Value</span>
           <span>Overvalued</span>
@@ -130,11 +126,11 @@ export default function ValuationGauge({ valuation }: ValuationGaugeProps) {
         <div className={`p-4 rounded-xl ${config.bg} ${config.border} border mb-6`}>
           <div className="flex items-center justify-between">
             <span className={`font-medium ${config.text}`}>Value Gap</span>
-            <span className={`text-2xl font-bold ${config.text}`}>
+            <span className={`text-2xl font-bold font-mono ${config.text}`}>
               {valuation.valueGap > 0 ? '+' : ''}{valuation.valueGap.toFixed(1)}%
             </span>
           </div>
-          <p className="text-sm mt-2 text-gray-600">
+          <p className="text-sm mt-2 text-[var(--foreground-secondary)]">
             {valuation.status === 'undervalued' &&
               'Trading below intrinsic value. Potential buying opportunity.'}
             {valuation.status === 'fair' &&
@@ -149,22 +145,22 @@ export default function ValuationGauge({ valuation }: ValuationGaugeProps) {
 
       {/* P/E Comparison */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="text-center p-4 bg-gray-50 rounded-xl">
-          <p className="text-xs font-medium text-gray-500 mb-1">QM Score</p>
-          <p className="text-2xl font-bold text-gray-900">{valuation.qmScore}</p>
-          <p className="text-xs text-gray-400">/ 8</p>
+        <div className="text-center p-4 bg-[var(--background-secondary)] rounded-xl">
+          <p className="text-xs font-medium text-[var(--foreground-muted)] mb-1">QM Score</p>
+          <p className="text-2xl font-bold text-[var(--foreground)] font-mono">{valuation.qmScore}</p>
+          <p className="text-xs text-[var(--foreground-muted)]">/ 8</p>
         </div>
-        <div className="text-center p-4 bg-blue-50 rounded-xl">
-          <p className="text-xs font-medium text-blue-600 mb-1">Fair P/E</p>
-          <p className="text-2xl font-bold text-blue-700">{valuation.fairPE.toFixed(1)}</p>
-          <p className="text-xs text-blue-400">based on quality</p>
+        <div className="text-center p-4 bg-amber-500/10 rounded-xl">
+          <p className="text-xs font-medium text-amber-300 mb-1">Fair P/E</p>
+          <p className="text-2xl font-bold text-amber-300 font-mono">{valuation.fairPE.toFixed(1)}</p>
+          <p className="text-xs text-amber-300/60">based on quality</p>
         </div>
-        <div className="text-center p-4 bg-purple-50 rounded-xl">
-          <p className="text-xs font-medium text-purple-600 mb-1">Current P/E</p>
-          <p className="text-2xl font-bold text-purple-700">
+        <div className="text-center p-4 bg-blue-500/10 rounded-xl">
+          <p className="text-xs font-medium text-blue-300 mb-1">Current P/E</p>
+          <p className="text-2xl font-bold text-blue-300 font-mono">
             {valuation.currentPE?.toFixed(1) || 'N/A'}
           </p>
-          <p className="text-xs text-purple-400">market price</p>
+          <p className="text-xs text-blue-300/60">market price</p>
         </div>
       </div>
     </div>

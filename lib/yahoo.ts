@@ -135,14 +135,21 @@ function getDateString(val: unknown): string {
 
 // Normalize Yahoo income statement to FMP format
 function normalizeIncomeStatement(yahoo: YahooIncomeStatement, symbol: string): IncomeStatement {
+  // Note: Yahoo doesn't provide weightedAverageShsOut per year
+  // We calculate it from netIncome/EPS when possible
+  const netIncome = getValue(yahoo.netIncome);
+  const eps = getValue(yahoo.dilutedEPS);
+  const estimatedShares = eps > 0 ? Math.round(netIncome / eps) : 0;
+
   return {
     date: getDateString(yahoo.endDate),
     symbol,
     revenue: getValue(yahoo.totalRevenue),
     grossProfit: getValue(yahoo.grossProfit),
     operatingIncome: getValue(yahoo.operatingIncome),
-    netIncome: getValue(yahoo.netIncome),
-    eps: getValue(yahoo.dilutedEPS),
+    netIncome,
+    eps,
+    weightedAverageShsOut: estimatedShares,
   };
 }
 

@@ -1,20 +1,30 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Playfair_Display, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import AnimatedBackground from "@/components/AnimatedBackground";
+import { LanguageProvider } from "@/lib/i18n/context";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const playfair = Playfair_Display({
+  variable: "--font-heading",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const dmSans = DM_Sans({
+  variable: "--font-body",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
-  title: "Quality Metrics - Osakeanalyysi",
-  description: "Analysoi osakkeiden laatua QM-asteikon avulla. Löydä aliarvostetut laatuyhtiöt.",
+  title: "Quality Metrics - Stock Analysis",
+  description: "Analyze stock quality with our comprehensive QM scoring system. Find undervalued quality stocks.",
 };
 
 export default function RootLayout({
@@ -23,11 +33,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${playfair.variable} ${dmSans.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        {children}
+        <LanguageProvider>
+          <AnimatedBackground />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

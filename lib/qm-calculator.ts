@@ -128,22 +128,28 @@ function calculatePillar2_5YearROIC(data: CalculationData): QMPillar {
 
 /**
  * Pillar 3: Shares Outstanding
- * Current shares < shares 5 years ago (decreasing)
+ * Current shares < shares 5 years ago (decreasing = buybacks)
  */
 function calculatePillar3_SharesOutstanding(data: CalculationData): QMPillar {
-  const currentShares = data.quote.sharesOutstanding;
-  const oldestBalance = data.balance[data.balance.length - 1];
-  const oldShares = oldestBalance?.commonStock;
+  // Use income statement's weightedAverageShsOut for accurate share counts
+  const currentIncome = data.income[0];
+  const oldestIncome = data.income[data.income.length - 1];
 
-  // Note: commonStock in balance sheet is dollar value, not share count
-  // Use sharesOutstanding from quote for current, estimate for old
-  const value = currentShares;
-  const passed = oldShares !== undefined && currentShares < oldShares;
+  const currentShares = currentIncome?.weightedAverageShsOut || data.quote.sharesOutstanding;
+  const oldShares = oldestIncome?.weightedAverageShsOut;
+
+  // Calculate percentage change (negative = shares decreased = good)
+  const percentChange = oldShares && currentShares
+    ? ((currentShares - oldShares) / oldShares) * 100
+    : null;
+
+  // Passed if shares decreased (buybacks) - even 0% change is acceptable
+  const passed = percentChange !== null && percentChange <= 0;
 
   return {
     name: 'Osakkeet',
     description: 'Osakkeiden määrä laskeva (takaisinosto)',
-    value,
+    value: percentChange,  // Show percentage change instead of raw shares
     threshold: 'Laskeva',
     passed,
     score: passed ? 1 : 0,
@@ -158,13 +164,14 @@ function calculatePillar4_FCFGrowth(data: CalculationData): QMPillar {
   const currentFCF = data.cashFlow[0]?.freeCashFlow || 0;
   const oldFCF = data.cashFlow[data.cashFlow.length - 1]?.freeCashFlow || 0;
 
-  const value = currentFCF;
+  // Calculate percentage growth
+  const percentGrowth = oldFCF !== 0 ? ((currentFCF - oldFCF) / Math.abs(oldFCF)) * 100 : null;
   const passed = currentFCF > oldFCF && currentFCF > 0;
 
   return {
     name: 'FCF kasvu',
     description: 'Vapaa kassavirta kasvanut 5 vuodessa',
-    value,
+    value: percentGrowth,
     threshold: 'Kasvava',
     passed,
     score: passed ? 1 : 0,
@@ -179,13 +186,14 @@ function calculatePillar5_NetIncomeGrowth(data: CalculationData): QMPillar {
   const currentIncome = data.income[0]?.netIncome || 0;
   const oldIncome = data.income[data.income.length - 1]?.netIncome || 0;
 
-  const value = currentIncome;
+  // Calculate percentage growth
+  const percentGrowth = oldIncome !== 0 ? ((currentIncome - oldIncome) / Math.abs(oldIncome)) * 100 : null;
   const passed = currentIncome > oldIncome && currentIncome > 0;
 
   return {
     name: 'Tulos kasvu',
     description: 'Nettotulos kasvanut 5 vuodessa',
-    value,
+    value: percentGrowth,
     threshold: 'Kasvava',
     passed,
     score: passed ? 1 : 0,
@@ -200,13 +208,14 @@ function calculatePillar6_RevenueGrowth(data: CalculationData): QMPillar {
   const currentRevenue = data.income[0]?.revenue || 0;
   const oldRevenue = data.income[data.income.length - 1]?.revenue || 0;
 
-  const value = currentRevenue;
+  // Calculate percentage growth
+  const percentGrowth = oldRevenue !== 0 ? ((currentRevenue - oldRevenue) / Math.abs(oldRevenue)) * 100 : null;
   const passed = currentRevenue > oldRevenue && currentRevenue > 0;
 
   return {
     name: 'Liikevaihto kasvu',
     description: 'Liikevaihto kasvanut 5 vuodessa',
-    value,
+    value: percentGrowth,
     threshold: 'Kasvava',
     passed,
     score: passed ? 1 : 0,
@@ -539,20 +548,295 @@ function getScoreRating(score: number): Rating {
 }
 
 /**
- * Check if stock qualifies as "Hidden Gem"
- * Criteria: QM ≥ 6, Market Cap < $50B, Value Gap > 15%, Rating Buy/Strong Buy, Positive FCF
+ * Sector average ROIC benchmarks (based on comprehensive analysis Dec 2024)
+ * Used to calculate sector-relative quality
+ *
+ * Analysis covered 70+ stocks across 5 sectors:
+ * - Consumer Cyclical: 25 stocks, avg ROIC 38-72% (wide range)
+ * - Technology: 20 stocks, avg ROIC 87%
+ * - Financial Services: 15 stocks, avg ROIC 48%
+ * - Industrials: 20 stocks, avg ROIC 60-62%
+ * - Healthcare: 15 stocks, avg ROIC 40-68%
+ */
+export const SECTOR_ROIC_BENCHMARKS: Record<string, number> = {
+  'Technology': 87,
+  'Consumer Cyclical': 55,  // Updated: median between retail (38%) and premium (72%)
+  'Consumer Defensive': 50,
+  'Financial Services': 48, // Updated: based on asset managers analysis
+  'Healthcare': 55,         // Updated: wide range 25-145%, median ~55%
+  'Industrials': 60,        // Updated: consistently high (ITW 111%, CAT 57%)
+  'Basic Materials': 35,    // Updated: WDFC 98% is outlier
+  'Energy': 20,
+  'Utilities': 15,
+  'Real Estate': 12,
+  'Communication Services': 40,
+};
+
+/**
+ * Sector average Operating Margin benchmarks (updated Dec 2024)
+ */
+export const SECTOR_MARGIN_BENCHMARKS: Record<string, number> = {
+  'Technology': 25,
+  'Consumer Cyclical': 11,  // Updated: retail avg 10-12%
+  'Consumer Defensive': 10,
+  'Financial Services': 22, // Updated: based on analysis
+  'Healthcare': 22,         // Updated: wide range 8-39%, median 22%
+  'Industrials': 17,        // Updated: avg from CAT, HON, ITW etc
+  'Basic Materials': 15,
+  'Energy': 15,
+  'Utilities': 20,
+  'Real Estate': 35,
+  'Communication Services': 18,
+};
+
+/**
+ * Hidden Gem Quality Tiers
+ *
+ * Crown Jewel: Top 5 highest scoring Hidden Gems globally (score >= 95)
+ *              Reserved for the absolute best opportunities
+ * Diamond: QM 8/8, all growth metrics, value gap > 30%, buybacks
+ * Gold: QM 7-8/8, most growth metrics, value gap > 20%
+ * Silver: QM 6-8/8, some growth metrics, value gap > 15%
+ */
+export type HiddenGemTier = 'crown-jewel' | 'diamond' | 'gold' | 'silver' | null;
+
+export interface HiddenGemAnalysis {
+  isHiddenGem: boolean;
+  tier: HiddenGemTier;
+  score: number; // 0-100 confidence score
+  signals: {
+    qmScore: { value: number; passed: boolean };
+    marketCap: { value: number; passed: boolean };
+    valueGap: { value: number | null; passed: boolean };
+    fcfPositive: { value: number; passed: boolean };
+    fcfGrowing: { value: boolean; passed: boolean };
+    incomeGrowing: { value: boolean; passed: boolean };
+    revenueGrowing: { value: boolean; passed: boolean };
+    sharesDecreasing: { value: boolean; passed: boolean };
+    // New sector-relative signals
+    roicVsSector: { value: number | null; passed: boolean };
+    marginVsSector: { value: number | null; passed: boolean };
+  };
+  warnings: string[];
+  recommendation: string;
+  sectorQuality: 'superior' | 'average' | 'below' | null;
+}
+
+/**
+ * Calculate sector-relative quality score
+ * Returns ratio vs sector average (1.0 = average, 1.5 = 50% above average)
+ */
+export function calculateSectorRelativeQuality(
+  roic: number | null,
+  operatingMargin: number | null,
+  sector: string
+): { roicRatio: number | null; marginRatio: number | null; quality: 'superior' | 'average' | 'below' | null } {
+  const sectorROIC = SECTOR_ROIC_BENCHMARKS[sector] || 30; // Default 30%
+  const sectorMargin = SECTOR_MARGIN_BENCHMARKS[sector] || 15; // Default 15%
+
+  const roicRatio = roic !== null ? roic / sectorROIC : null;
+  const marginRatio = operatingMargin !== null ? operatingMargin / sectorMargin : null;
+
+  // Calculate overall quality
+  let quality: 'superior' | 'average' | 'below' | null = null;
+  if (roicRatio !== null && marginRatio !== null) {
+    const avgRatio = (roicRatio + marginRatio) / 2;
+    if (avgRatio >= 1.3) quality = 'superior';
+    else if (avgRatio >= 0.8) quality = 'average';
+    else quality = 'below';
+  }
+
+  return { roicRatio, marginRatio, quality };
+}
+
+/**
+ * Check if stock qualifies as "Hidden Gem" with improved criteria
+ *
+ * Based on backtest findings:
+ * - QM Score trend matters more than absolute value
+ * - FCF/Income growth are key predictors of future returns
+ * - Declining fundamentals = value trap, not hidden gem
+ *
+ * Tiers:
+ * - Diamond: QM 8/8, all growth metrics positive, value gap > 30%
+ * - Gold: QM 7-8/8, most growth metrics positive, value gap > 20%
+ * - Silver: QM 6-8/8, some growth metrics positive, value gap > 15%
  */
 function checkHiddenGem(data: RatingInputData, rating: Rating, score: number): boolean {
+  const analysis = analyzeHiddenGem(data, rating, score);
+  return analysis.isHiddenGem;
+}
+
+/**
+ * Full Hidden Gem analysis with tier and signals
+ * Now includes sector-relative quality metrics
+ */
+export function analyzeHiddenGem(
+  data: RatingInputData,
+  rating: Rating,
+  ratingScore: number,
+  sector?: string
+): HiddenGemAnalysis {
   const qmScore = data.qmScore.totalScore;
   const marketCap = data.quote.marketCap;
   const valueGap = data.valuation.valueGap;
   const latestFCF = data.cashFlow[0]?.freeCashFlow ?? 0;
+  const warnings: string[] = [];
 
-  return (
+  // Get growth metrics from pillars
+  const fcfGrowthPillar = data.qmScore.pillars.find(p => p.name === 'FCF kasvu');
+  const incomeGrowthPillar = data.qmScore.pillars.find(p => p.name === 'Tulos kasvu');
+  const revenueGrowthPillar = data.qmScore.pillars.find(p => p.name === 'Liikevaihto kasvu');
+  const sharesPillar = data.qmScore.pillars.find(p => p.name === 'Osakkeet');
+  const roicPillar = data.qmScore.pillars.find(p => p.name === '5v ROIC');
+
+  const fcfGrowing = fcfGrowthPillar?.passed ?? false;
+  const incomeGrowing = incomeGrowthPillar?.passed ?? false;
+  const revenueGrowing = revenueGrowthPillar?.passed ?? false;
+  const sharesDecreasing = sharesPillar?.passed ?? false;
+
+  // Calculate sector-relative quality
+  const roic = roicPillar?.value ?? null;
+  const operatingMargin = data.qmScore.additionalMetrics.operatingMargin ?? null;
+  const sectorQualityData = sector
+    ? calculateSectorRelativeQuality(roic, operatingMargin, sector)
+    : { roicRatio: null, marginRatio: null, quality: null as 'superior' | 'average' | 'below' | null };
+
+  // Build signals object with sector-relative metrics
+  const signals = {
+    qmScore: { value: qmScore, passed: qmScore >= 6 },
+    marketCap: { value: marketCap, passed: marketCap < 50_000_000_000 },
+    valueGap: { value: valueGap, passed: valueGap !== null && valueGap > 15 },
+    fcfPositive: { value: latestFCF, passed: latestFCF > 0 },
+    fcfGrowing: { value: fcfGrowing, passed: fcfGrowing },
+    incomeGrowing: { value: incomeGrowing, passed: incomeGrowing },
+    revenueGrowing: { value: revenueGrowing, passed: revenueGrowing },
+    sharesDecreasing: { value: sharesDecreasing, passed: sharesDecreasing },
+    // Sector-relative signals
+    roicVsSector: {
+      value: sectorQualityData.roicRatio,
+      passed: sectorQualityData.roicRatio !== null && sectorQualityData.roicRatio >= 1.0
+    },
+    marginVsSector: {
+      value: sectorQualityData.marginRatio,
+      passed: sectorQualityData.marginRatio !== null && sectorQualityData.marginRatio >= 1.0
+    },
+  };
+
+  // Count growth signals (key differentiator from backtest)
+  const growthSignals = [fcfGrowing, incomeGrowing, revenueGrowing].filter(Boolean).length;
+
+  // Base requirements
+  const meetsBaseRequirements =
     qmScore >= 6 &&
-    marketCap < 50_000_000_000 && // < $50B
+    marketCap < 50_000_000_000 &&
     valueGap !== null && valueGap > 15 &&
     (rating === 'Buy' || rating === 'Strong Buy') &&
-    latestFCF > 0
-  );
+    latestFCF > 0;
+
+  if (!meetsBaseRequirements) {
+    return {
+      isHiddenGem: false,
+      tier: null,
+      score: 0,
+      signals,
+      warnings: ['Does not meet base requirements'],
+      recommendation: '',
+      sectorQuality: sectorQualityData.quality,
+    };
+  }
+
+  // Check for warning signs (value trap indicators from TROW case)
+  if (!incomeGrowing && !fcfGrowing) {
+    warnings.push('⚠️ Both income and FCF declining - potential value trap');
+  }
+  if (growthSignals === 0) {
+    warnings.push('⚠️ No growth signals - fundamentals may be deteriorating');
+  }
+
+  // Calculate tier based on quality + growth combination
+  let tier: HiddenGemTier = null;
+  let confidenceScore = 0;
+
+  // Not a gem if no growth signals (learned from TROW backtest)
+  if (growthSignals === 0) {
+    return {
+      isHiddenGem: false,
+      tier: null,
+      score: 0,
+      signals,
+      warnings: ['Filtered out: No growth signals despite undervaluation'],
+      recommendation: '⚠️ Value trap risk - fundamentals declining',
+      sectorQuality: sectorQualityData.quality,
+    };
+  }
+
+  // Calculate base confidence score
+  // Base: QM contribution (max 40) + Value Gap contribution (max 30) + Growth signals (max 20) + Buybacks (max 10)
+  const qmContribution = (qmScore / 8) * 40;
+  const valueGapContribution = valueGap !== null ? Math.min(30, (valueGap / 60) * 30) : 0;
+  const growthContribution = growthSignals * 6.67; // 0-20 points
+  const buybackContribution = sharesDecreasing ? 10 : 0;
+
+  confidenceScore = qmContribution + valueGapContribution + growthContribution + buybackContribution;
+
+  // Bonus for sector-superior quality
+  if (sectorQualityData.quality === 'superior') {
+    confidenceScore += 8;
+  } else if (sectorQualityData.quality === 'below') {
+    confidenceScore -= 8;
+    warnings.push('⚠️ Quality below sector average');
+  }
+
+  // Determine tier based on score thresholds
+  // Crown Jewel: 95+ (exceptional - only ~top 5 stocks globally should qualify)
+  // Diamond: 85-94 (premium quality)
+  // Gold: 70-84 (high quality)
+  // Silver: 55-69 (good quality)
+  if (confidenceScore >= 95) {
+    tier = 'crown-jewel';
+  } else if (confidenceScore >= 85 && qmScore >= 8 && growthSignals >= 3 && valueGap !== null && valueGap >= 30) {
+    tier = 'diamond';
+  } else if (confidenceScore >= 70 && qmScore >= 7 && growthSignals >= 2 && valueGap !== null && valueGap >= 20) {
+    tier = 'gold';
+  } else if (confidenceScore >= 55 && qmScore >= 6 && growthSignals >= 1 && valueGap !== null && valueGap >= 15) {
+    tier = 'silver';
+  }
+
+  // Generate recommendation based on tier and signals
+  let recommendation = '';
+  if (tier === 'crown-jewel') {
+    recommendation = '👑 Crown Jewel - Elite opportunity: Perfect quality, deep value, all growth signals';
+    if (sectorQualityData.quality === 'superior') {
+      recommendation += ' + Sector Leader';
+    }
+  } else if (tier === 'diamond') {
+    recommendation = growthSignals === 3 && sharesDecreasing
+      ? '💎 Strong Buy - All quality signals positive, deeply undervalued with buybacks'
+      : '💎 Buy - High quality at attractive valuation';
+    if (sectorQualityData.quality === 'superior') {
+      recommendation += ' (Sector Leader)';
+    }
+  } else if (tier === 'gold') {
+    recommendation = '🥇 Buy - Good quality with solid undervaluation';
+  } else if (tier === 'silver') {
+    recommendation = growthSignals >= 2
+      ? '🥈 Accumulate - Decent quality, monitor for improvement'
+      : '🥈 Watch - Undervalued but growth signals weak';
+  }
+
+  // Add warnings to recommendation
+  if (warnings.length > 0 && tier !== null) {
+    recommendation += ' ⚠️ Check fundamentals trend';
+  }
+
+  return {
+    isHiddenGem: tier !== null,
+    tier,
+    score: Math.min(100, Math.round(confidenceScore)),
+    signals,
+    warnings,
+    recommendation,
+    sectorQuality: sectorQualityData.quality,
+  };
 }
