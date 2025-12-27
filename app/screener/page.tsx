@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Filter, TrendingUp, TrendingDown, Minus, ArrowUpDown, Play, Loader2, Globe, Flag, AlertTriangle, Gem, Lock } from 'lucide-react';
+import { Filter, TrendingUp, TrendingDown, Minus, ArrowUpDown, Play, Loader2, Globe, Flag, AlertTriangle, Gem, Lock, Clock } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import SearchBar from '@/components/SearchBar';
 import Logo from '@/components/Logo';
 import GlowCard from '@/components/GlowCard';
 import UserMenu from '@/components/UserMenu';
+import { InvestmentTimeframe, TIMEFRAME_LABELS, DEFAULT_TIMEFRAME } from '@/lib/timeframe-scoring';
 
 type Market = 'US' | 'Europe' | 'all';
 type Rating = 'Strong Buy' | 'Buy' | 'Hold' | 'Sell';
@@ -150,6 +151,7 @@ export default function ScreenerPage() {
 
   // Filters
   const [selectedMarket, setSelectedMarket] = useState<Market>('all');
+  const [selectedTimeframe, setSelectedTimeframe] = useState<InvestmentTimeframe>(DEFAULT_TIMEFRAME);
   const [minScore, setMinScore] = useState(0);
   const [selectedSector, setSelectedSector] = useState('all');
   const [selectedValuation, setSelectedValuation] = useState('all');
@@ -165,6 +167,7 @@ export default function ScreenerPage() {
         minScore: String(minScore),
         sector: selectedSector,
         market: selectedMarket,
+        timeframe: selectedTimeframe,
         valuation: selectedValuation,
         rating: selectedRating,
         hiddenGemsOnly: showHiddenGemsOnly ? 'true' : 'false',
@@ -182,7 +185,7 @@ export default function ScreenerPage() {
     } finally {
       setLoading(false);
     }
-  }, [minScore, selectedSector, selectedMarket, selectedValuation, selectedRating, showHiddenGemsOnly, sortBy, sortOrder]);
+  }, [minScore, selectedSector, selectedMarket, selectedTimeframe, selectedValuation, selectedRating, showHiddenGemsOnly, sortBy, sortOrder]);
 
   const fetchScannerStatus = async () => {
     try {
@@ -272,6 +275,35 @@ export default function ScreenerPage() {
             {scannerStatus?.totalStockCount || 0} stocks analyzed
           </p>
         </div>
+
+        {/* Investment Timeframe Selector */}
+        <GlowCard className="p-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[var(--foreground-muted)]" />
+              <span className="text-sm font-medium text-[var(--foreground-secondary)]">Sijoitusaikaväli:</span>
+            </div>
+            <div className="flex gap-2">
+              {(Object.entries(TIMEFRAME_LABELS) as [InvestmentTimeframe, typeof TIMEFRAME_LABELS['long-term']][]).map(([key, { label, description, icon }]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedTimeframe(key)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    selectedTimeframe === key
+                      ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 text-amber-300'
+                      : 'bg-[var(--background-secondary)] border border-[var(--border)] text-[var(--foreground-muted)] hover:border-amber-500/30 hover:text-[var(--foreground)]'
+                  }`}
+                >
+                  <span className="text-base">{icon}</span>
+                  <div className="text-left">
+                    <div className="font-semibold">{label}</div>
+                    <div className="text-xs opacity-70">{description}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </GlowCard>
 
         {/* Market Tabs & Scan Buttons */}
         <GlowCard className="p-4 mb-6">

@@ -186,6 +186,42 @@ export async function getUserById(id: string) {
   return result.rows[0] as unknown as { id: string; subscription_tier: string; trial_ends_at: string | null } | undefined;
 }
 
+// Credentials auth functions
+export interface UserWithPassword {
+  id: string;
+  email: string;
+  username: string;
+  password_hash: string | null;
+  subscription_tier: string;
+  trial_ends_at: string | null;
+  role: string;
+}
+
+export async function getUserByUsername(username: string): Promise<UserWithPassword | undefined> {
+  const db = getClient();
+  const result = await db.execute({
+    sql: 'SELECT id, email, username, password_hash, subscription_tier, trial_ends_at, role FROM users WHERE username = ?',
+    args: [username]
+  });
+  return result.rows[0] as unknown as UserWithPassword | undefined;
+}
+
+export async function createUserWithPassword(user: {
+  id: string;
+  username: string;
+  email: string;
+  passwordHash: string;
+  subscriptionTier: string;
+  role: string;
+}) {
+  const db = getClient();
+  await db.execute({
+    sql: `INSERT INTO users (id, email, username, password_hash, subscription_tier, role, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+    args: [user.id, user.email, user.username, user.passwordHash, user.subscriptionTier, user.role]
+  });
+}
+
 // Export getDb for backward compatibility (returns client)
 export function getDb() {
   return getClient();
